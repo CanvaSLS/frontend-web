@@ -1,19 +1,25 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
-  Bell, BookOpen, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight,
+  Bell, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight,
   CircleHelp, ClipboardList, CloudUpload, FileText, GraduationCap, Home,
-  Inbox, LayoutDashboard, Menu, MoreHorizontal, Plus, Search, Settings,
-  Users, X,
+  Inbox, LayoutDashboard, LogOut, Menu, MoreHorizontal, Plus, RefreshCw, Search,
+  TriangleAlert, Users, X, Layers, BarChart3, Edit3,
 } from 'lucide-react'
 import {
-  courses, formatDate, formatDateLong, initialState, loadDemoState, modules,
-  saveDemoState, tenants,
-  type Assignment, type Course, type CourseTab, type DemoState, type Notice,
-  type Role, type Section, type Submission, type TenantId,
+  formatDate, formatDateLong,
+  type Assignment, type Course, type CourseModule, type CourseTab, type Notice,
+  type Role, type Section, type Submission,
 } from './data'
+import { DiaryView, MasteryView, PracticeView, ThemePicker, WeekPulse } from './extras'
+import { Login } from './live/Login'
+import { alCaducarSesion, guardarSesion, leerSesion } from './live/api'
+import { nombreTenant } from './live/config'
+import { aRole } from './live/adapt'
+import { useAcademia } from './live/useAcademia'
+import type { Sesion } from './live/types'
 
 type Icon = typeof Home
-type NavigationItem = { id: Section; label: string; icon: Icon }
+type NavigationItem = { id: Section; label: string; icon: Icon; role?: Role }
 
 const navigation: NavigationItem[] = [
   { id: 'dashboard', label: 'Panel', icon: LayoutDashboard },
@@ -21,6 +27,9 @@ const navigation: NavigationItem[] = [
   { id: 'calendar', label: 'Calendario', icon: CalendarDays },
   { id: 'inbox', label: 'Bandeja', icon: Inbox },
   { id: 'grades', label: 'Calificaciones', icon: GraduationCap },
+  { id: 'practice', label: 'Práctica', icon: Layers, role: 'student' },
+  { id: 'mastery', label: 'Dominio', icon: BarChart3 },
+  { id: 'diary', label: 'Diario', icon: Edit3, role: 'student' },
 ]
 
 const courseTabs: { id: CourseTab; label: string; icon: Icon }[] = [
@@ -30,10 +39,6 @@ const courseTabs: { id: CourseTab; label: string; icon: Icon }[] = [
   { id: 'grades', label: 'Calificaciones', icon: GraduationCap },
   { id: 'people', label: 'Personas', icon: Users },
 ]
-
-function uid(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
 
 function IconBadge({ icon: IconComponent, tone = 'blue' }: { icon: Icon; tone?: 'blue' | 'green' | 'orange' | 'purple' }) {
   return <span className={`icon-badge ${tone}`}><IconComponent size={20} strokeWidth={1.8} /></span>
@@ -49,52 +54,80 @@ function Button({ children, onClick, secondary = false, type = 'button', disable
   return <button className={secondary ? 'button secondary' : 'button primary'} type={type} onClick={onClick} disabled={disabled}>{children}</button>
 }
 
+/**
+ * Puerta de entrada. Sin sesión válida solo existe el login: el tenant y el rol
+ * salen del token, nunca de un selector de la interfaz.
+ */
 export default function App() {
-  const [tenantId, setTenantId] = useState<TenantId>('utec')
-  const [role, setRole] = useState<Role>('student')
+  const [sesion, setSesion] = useState<Sesion | null>(leerSesion)
+
+  useEffect(() => {
+    alCaducarSesion(() => setSesion(null)) // un 401 devuelve al login
+    return () => alCaducarSesion(null)
+  }, [])
+
+  function entrar(s: Sesion) {
+    guardarSesion(s)
+    setSesion(s)
+  }
+
+  function salir() {
+    guardarSesion(null)
+    setSesion(null)
+  }
+
+  if (!sesion) return <Login onEntrar={entrar} />
+  // La `key` reinicia la navegación al cambiar de usuario o institución.
+  return <Academia key={sesion.token} sesion={sesion} onSalir={salir} />
+}
+
+function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) {
+  const role = aRole(sesion.usuario.rol)
+  const tenantId = sesion.usuario.tenant_id
+  const studentId = sesion.usuario.user_id
+  const userName = sesion.usuario.nombre
+
+  const datos = useAcademia(sesion)
+
   const [section, setSection] = useState<Section>('dashboard')
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
   const [courseTab, setCourseTab] = useState<CourseTab>('home')
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null)
   const [selectedModuleItemId, setSelectedModuleItemId] = useState<string | null>(null)
-  const [state, setState] = useState<DemoState>(loadDemoState)
   const [showCreateAssignment, setShowCreateAssignment] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState('')
 
-  const tenant = tenants.find((item) => item.id === tenantId)!
-  const tenantCourses = useMemo(() => courses.filter((course) => course.tenantId === tenantId), [tenantId])
-  const tenantAssignments = useMemo(() => state.assignments.filter((assignment) => assignment.tenantId === tenantId && (role === 'teacher' || assignment.published)), [state.assignments, tenantId, role])
-  const tenantNotices = useMemo(() => state.notices.filter((notice) => notice.tenantId === tenantId && notice.role === role), [state.notices, tenantId, role])
+  // El backend ya devuelve solo lo del tenant del token: no se filtra en el cliente.
+  const tenantCourses = datos.courses
+  const tenantAssignments = datos.assignments
+  const tenantNotices = datos.notices
   const selectedCourse = tenantCourses.find((course) => course.id === selectedCourseId) ?? null
   const selectedAssignment = tenantAssignments.find((assignment) => assignment.id === selectedAssignmentId) ?? null
-  const studentId = `demo-${tenantId}-student`
-  const studentName = tenantId === 'utec' ? 'Valeria Mendoza' : 'Mateo Salazar'
-  const userName = role === 'student' ? studentName : (tenantId === 'utec' ? 'Gerardo Colchado' : 'Ana Torres')
-  const unreadCount = tenantNotices.filter((notice) => !notice.read).length
+  const unreadCount = datos.noLeidas || tenantNotices.filter((notice) => !notice.read).length
+  const courseModules = selectedCourse ? datos.modulesByCourse[selectedCourse.id] ?? [] : []
 
-  useEffect(() => saveDemoState(state), [state])
   useEffect(() => {
     if (!toast) return
     const timer = window.setTimeout(() => setToast(''), 3500)
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  function changeTenant(id: TenantId) {
-    setTenantId(id)
-    setSelectedCourseId(null)
-    setSelectedAssignmentId(null)
-    setSelectedModuleItemId(null)
-    setSection('dashboard')
-    setSearch('')
-  }
+  // Los módulos se piden al abrir el curso, no en la carga inicial.
+  const cargarModulos = datos.cargarModulos
+  useEffect(() => {
+    if (selectedCourseId) cargarModulos(selectedCourseId)
+  }, [selectedCourseId, cargarModulos])
 
-  function changeRole(nextRole: Role) {
-    setRole(nextRole)
-    setSelectedAssignmentId(null)
-    setSelectedModuleItemId(null)
-    setSection('dashboard')
+  /** Envuelve una mutación para mostrar el error de la API en lugar de perderlo. */
+  async function ejecutar(accion: () => Promise<void>, exito: string) {
+    try {
+      await accion()
+      setToast(exito)
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : 'La operación falló')
+    }
   }
 
   function navigate(nextSection: Section) {
@@ -122,62 +155,31 @@ export default function App() {
 
   function addAssignment(input: { title: string; description: string; dueAt: string; points: number }) {
     if (!selectedCourse || role !== 'teacher') return
-    const assignment: Assignment = {
-      id: uid(), tenantId, courseId: selectedCourse.id, title: input.title,
-      description: input.description, dueAt: input.dueAt, points: input.points, published: true,
-    }
-    const notice: Notice = {
-      id: uid(), tenantId, role: 'student', title: 'Nueva tarea publicada',
-      body: `${assignment.title} · ${selectedCourse.name}`, date: new Date().toISOString(), read: false,
-    }
-    setState((prev) => ({ ...prev, assignments: [assignment, ...prev.assignments], notices: [notice, ...prev.notices] }))
     setShowCreateAssignment(false)
-    setToast('Tarea publicada en la demostración')
+    void ejecutar(
+      () => datos.crearTarea(selectedCourse.id, input),
+      `Tarea publicada en ${selectedCourse.name}`,
+    )
   }
 
   function submitAssignment(assignment: Assignment, text: string, fileName?: string) {
-    if (role !== 'student' || assignment.tenantId !== tenantId || (!text.trim() && !fileName)) return
-    const submission: Submission = {
-      id: uid(), assignmentId: assignment.id, tenantId, studentId, studentName,
-      text: text.trim(), fileName, submittedAt: new Date().toISOString(),
-    }
-    const notice: Notice = {
-      id: uid(), tenantId, role: 'teacher', title: 'Nueva entrega recibida',
-      body: `${studentName} entregó ${assignment.title}`, date: new Date().toISOString(), read: false,
-    }
-    setState((prev) => ({
-      ...prev,
-      submissions: [submission, ...prev.submissions.filter((item) => !(item.assignmentId === assignment.id && item.studentId === studentId))],
-      notices: [notice, ...prev.notices],
-    }))
-    setToast('Entrega registrada en la demostración')
+    if (role !== 'student' || (!text.trim() && !fileName)) return
+    void ejecutar(
+      () => datos.entregar(assignment.courseId, assignment.id, text.trim(), fileName),
+      'Entrega registrada · se publicó el evento EntregaRegistrada',
+    )
   }
 
   function gradeSubmission(submission: Submission, assignment: Assignment, grade: number, feedback: string) {
-    if (role !== 'teacher' || assignment.tenantId !== tenantId || grade < 0 || grade > assignment.points) return
-    const notice: Notice = {
-      id: uid(), tenantId, role: 'student', title: 'Nueva calificación disponible',
-      body: `${assignment.title}: ${grade} de ${assignment.points} puntos`, date: new Date().toISOString(), read: false,
-    }
-    setState((prev) => ({
-      ...prev,
-      submissions: prev.submissions.map((item) => item.id === submission.id ? { ...item, grade, feedback } : item),
-      notices: [notice, ...prev.notices],
-    }))
-    setToast('Calificación guardada en la demostración')
+    if (role !== 'teacher' || grade < 0 || grade > assignment.points) return
+    void ejecutar(
+      () => datos.calificar(assignment.courseId, assignment.id, submission.studentId, grade, feedback),
+      'Nota publicada · analítica recalculará el riesgo del alumno',
+    )
   }
 
   function markAllRead() {
-    setState((prev) => ({
-      ...prev,
-      notices: prev.notices.map((notice) => notice.tenantId === tenantId && notice.role === role ? { ...notice, read: true } : notice),
-    }))
-  }
-
-  function resetDemo() {
-    setState(initialState)
-    setSelectedAssignmentId(null)
-    setToast('Datos de demostración restablecidos')
+    void ejecutar(() => datos.marcarTodasLeidas(), 'Avisos marcados como leídos')
   }
 
   const breadcrumbs = selectedCourse
@@ -193,14 +195,15 @@ export default function App() {
         <div className="brand-name">Canva<span>SLS</span></div>
       </div>
       <div className="global-nav-items">
-        {navigation.map(({ id, label, icon: IconComponent }) => <button key={id} className={`global-nav-item ${!selectedCourse && section === id ? 'active' : ''}`} onClick={() => navigate(id)}>
+        {navigation.filter((item) => !item.role || item.role === role).map(({ id, label, icon: IconComponent }) => <button key={id} className={`global-nav-item ${!selectedCourse && section === id ? 'active' : ''}`} onClick={() => navigate(id)}>
           <span className="nav-icon-wrap"><IconComponent size={22} strokeWidth={1.8} />{id === 'inbox' && unreadCount > 0 && <i className="nav-dot" />}</span>
           <span>{label}</span>
         </button>)}
       </div>
       <div className="global-nav-bottom">
-        <button className="global-nav-item" onClick={resetDemo}><Settings size={22} strokeWidth={1.8} /><span>Reiniciar</span></button>
-        <button className="global-nav-item" onClick={() => setToast('CanvaSLS · Vista de demostración')}><CircleHelp size={22} strokeWidth={1.8} /><span>Ayuda</span></button>
+        <button className="global-nav-item" onClick={() => { datos.recargar(); setToast('Recargando desde las APIs…') }}><RefreshCw size={22} strokeWidth={1.8} /><span>Recargar</span></button>
+        <button className="global-nav-item" onClick={() => setToast(`Conectado a AWS como ${sesion.usuario.email ?? userName}`)}><CircleHelp size={22} strokeWidth={1.8} /><span>Ayuda</span></button>
+        <button className="global-nav-item" onClick={onSalir}><LogOut size={22} strokeWidth={1.8} /><span>Salir</span></button>
       </div>
     </aside>
 
@@ -216,11 +219,17 @@ export default function App() {
       </header>
 
       <div className="context-bar">
-        <div className="tenant-context"><span className="context-label">INSTITUCIÓN</span><label className="select-wrap"><select aria-label="Institución" value={tenantId} onChange={(event) => changeTenant(event.target.value as TenantId)}>{tenants.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown size={15} /></label></div>
+        <div className="tenant-context"><span className="context-label">INSTITUCIÓN</span><strong className="context-value">{nombreTenant(tenantId)} · {tenantId}</strong></div>
         <div className="context-divider" />
-        <div className="role-context"><span className="context-label">VISTA DE DEMO</span><div className="segmented" aria-label="Seleccionar rol"><button className={role === 'student' ? 'selected' : ''} onClick={() => changeRole('student')}>Alumno</button><button className={role === 'teacher' ? 'selected' : ''} onClick={() => changeRole('teacher')}>Profesor</button></div></div>
-        <span className="demo-pill">Datos de demostración</span>
+        <div className="role-context"><span className="context-label">SESIÓN</span><strong className="context-value">{sesion.usuario.nombre} · {sesion.usuario.rol}</strong></div>
+        <span className="live-pill" title="El tenant y el rol provienen del token, no de la interfaz">Datos reales de AWS</span>
       </div>
+
+      {datos.cargando && <div className="load-bar" role="status">Cargando desde los microservicios…</div>}
+      {datos.error && <div className="load-bar error" role="alert">
+        <TriangleAlert size={17} /> {datos.error}
+        <button className="button secondary" onClick={datos.recargar}>Reintentar</button>
+      </div>}
 
       {selectedCourse ? <div className="course-layout">
         <aside className="course-sidebar">
@@ -229,20 +238,24 @@ export default function App() {
           <nav aria-label="Navegación del curso">{courseTabs.map(({ id, label, icon: IconComponent }) => <button key={id} className={courseTab === id ? 'selected' : ''} onClick={() => { setCourseTab(id); setSelectedAssignmentId(null); setSelectedModuleItemId(null) }}><IconComponent size={17} />{label}</button>)}</nav>
         </aside>
         <main className="main-content course-content">
-          {selectedAssignment ? <AssignmentDetail assignment={selectedAssignment} course={selectedCourse} role={role} studentId={studentId} submissions={state.submissions.filter((item) => item.tenantId === tenantId && item.assignmentId === selectedAssignment.id)} onBack={() => setSelectedAssignmentId(null)} onSubmit={submitAssignment} onGrade={gradeSubmission} />
-            : selectedModuleItemId ? <ModuleDetail itemId={selectedModuleItemId} course={selectedCourse} onBack={() => setSelectedModuleItemId(null)} />
-              : <CourseContent course={selectedCourse} tab={courseTab} role={role} assignments={tenantAssignments.filter((item) => item.courseId === selectedCourse.id)} submissions={state.submissions.filter((item) => item.tenantId === tenantId)} studentId={studentId} onOpenAssignment={openAssignment} onOpenModuleItem={setSelectedModuleItemId} onCreateAssignment={() => setShowCreateAssignment(true)} />}
+          {selectedAssignment ? <AssignmentDetail assignment={selectedAssignment} course={selectedCourse} role={role} studentId={studentId} submissions={datos.submissions.filter((item) => item.assignmentId === selectedAssignment.id)} onBack={() => setSelectedAssignmentId(null)} onSubmit={submitAssignment} onGrade={gradeSubmission} />
+            : selectedModuleItemId ? <ModuleDetail itemId={selectedModuleItemId} course={selectedCourse} courseModules={courseModules} onBack={() => setSelectedModuleItemId(null)} />
+              : <CourseContent course={selectedCourse} tab={courseTab} role={role} assignments={tenantAssignments.filter((item) => item.courseId === selectedCourse.id)} submissions={datos.submissions} courseModules={courseModules} studentId={studentId} onOpenAssignment={openAssignment} onOpenModuleItem={setSelectedModuleItemId} onCreateAssignment={() => setShowCreateAssignment(true)} />}
         </main>
       </div> : <main className="main-content root-content">
-        {section === 'dashboard' && <Dashboard tenant={tenant.shortName} role={role} userName={userName} courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} assignments={tenantAssignments} notices={tenantNotices} submissions={state.submissions.filter((item) => item.tenantId === tenantId)} studentId={studentId} onCourse={openCourse} onAssignment={openAssignment} onNavigate={navigate} />}
+        {section === 'dashboard' && <Dashboard tenant={tenantId} role={role} userName={userName} courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} assignments={tenantAssignments} notices={tenantNotices} submissions={datos.submissions} studentId={studentId} onCourse={openCourse} onAssignment={openAssignment} onNavigate={navigate} />}
         {section === 'courses' && <CoursesView courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} onCourse={openCourse} />}
-        {section === 'calendar' && <CalendarView assignments={tenantAssignments} onAssignment={openAssignment} />}
+        {section === 'calendar' && <CalendarView assignments={tenantAssignments} courseList={tenantCourses} onAssignment={openAssignment} />}
         {section === 'inbox' && <InboxView notices={tenantNotices} onMarkAllRead={markAllRead} />}
-        {section === 'grades' && <GradesView role={role} assignments={tenantAssignments} submissions={state.submissions.filter((item) => item.tenantId === tenantId)} studentId={studentId} onAssignment={openAssignment} />}
+        {section === 'practice' && <PracticeView onDone={() => navigate('mastery')} />}
+        {section === 'mastery' && <MasteryView role={role} />}
+        {section === 'diary' && <DiaryView />}
+        {section === 'grades' && <GradesView role={role} assignments={tenantAssignments} submissions={datos.submissions} courseList={tenantCourses} studentId={studentId} onAssignment={openAssignment} />}
       </main>}
     </div>
 
     {showCreateAssignment && selectedCourse && <CreateAssignmentModal course={selectedCourse} onClose={() => setShowCreateAssignment(false)} onCreate={addAssignment} />}
+    <ThemePicker />
     {toast && <div className="toast"><Check size={17} />{toast}</div>}
     {mobileMenuOpen && <button className="mobile-scrim" aria-label="Cerrar menú" onClick={() => setMobileMenuOpen(false)} />}
   </div>
@@ -269,13 +282,14 @@ function Dashboard({ tenant, role, userName, courseList, assignments, notices, s
     <PageHeading eyebrow={`ESPACIO ACADÉMICO · ${tenant}`} title={`Hola, ${userName.split(' ')[0]} 👋`} subtitle={role === 'student' ? 'Aquí tienes un resumen de tus cursos y próximas actividades.' : 'Administra tus cursos y revisa la actividad de tus estudiantes.'} />
     <div className="dashboard-grid">
       <div className="dashboard-main">
+        {role === 'student' && <WeekPulse pending={pending.length} onPractice={() => onNavigate('practice')} />}
         <section className="summary-grid">
           <div className="summary-card"><IconBadge icon={BookOpen} tone="blue" /><div><strong>{courseList.length}</strong><span>Cursos activos</span></div></div>
           <div className="summary-card"><IconBadge icon={ClipboardList} tone="orange" /><div><strong>{role === 'student' ? pending.length : assignments.length}</strong><span>{role === 'student' ? 'Tareas pendientes' : 'Tareas publicadas'}</span></div></div>
           <div className="summary-card"><IconBadge icon={role === 'student' ? GraduationCap : Users} tone="green" /><div><strong>{role === 'student' ? graded : courseList.reduce((sum, course) => sum + course.students, 0)}</strong><span>{role === 'student' ? 'Notas disponibles' : 'Estudiantes'}</span></div></div>
         </section>
         <section className="section-block"><div className="section-heading"><div><h2>Mis cursos</h2><p>Continúa donde te quedaste</p></div><button className="text-link" onClick={() => onNavigate('courses')}>Ver todos <ChevronRight size={16} /></button></div><div className="course-grid">{courseList.length ? courseList.map((course) => <CourseCard key={course.id} course={course} onClick={() => onCourse(course.id)} />) : <EmptyState icon={BookOpen} title="Sin cursos" detail="No hay cursos que coincidan con tu búsqueda." />}</div></section>
-        <section className="section-block"><div className="section-heading"><div><h2>Próximas tareas</h2><p>Actividades de tus cursos</p></div><button className="text-link" onClick={() => onNavigate('calendar')}>Ver calendario <ChevronRight size={16} /></button></div><div className="panel-list">{assignments.length ? assignments.slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt)).slice(0, 4).map((assignment) => { const course = courses.find((item) => item.id === assignment.courseId)!; const submitted = submissions.some((item) => item.assignmentId === assignment.id && item.studentId === studentId); return <button key={assignment.id} className="assignment-row" onClick={() => onAssignment(assignment)}><span className="date-tile"><b>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { day: '2-digit', timeZone: 'America/Lima' })}</b><small>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { month: 'short', timeZone: 'America/Lima' })}</small></span><span className="assignment-row-main"><strong>{assignment.title}</strong><small>{course.name} · {assignment.points} puntos</small></span><span className={`status-pill ${submitted ? 'success' : ''}`}>{submitted ? 'Entregada' : role === 'student' ? 'Pendiente' : 'Publicada'}</span><ChevronRight size={18} className="row-chevron" /></button> }) : <EmptyState icon={ClipboardList} title="Sin tareas" detail="Las tareas publicadas aparecerán aquí." />}</div></section>
+        <section className="section-block"><div className="section-heading"><div><h2>Próximas tareas</h2><p>Actividades de tus cursos</p></div><button className="text-link" onClick={() => onNavigate('calendar')}>Ver calendario <ChevronRight size={16} /></button></div><div className="panel-list">{assignments.length ? assignments.slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt)).slice(0, 4).map((assignment) => { const course = courseList.find((item) => item.id === assignment.courseId); const submitted = submissions.some((item) => item.assignmentId === assignment.id && item.studentId === studentId); return <button key={assignment.id} className="assignment-row" onClick={() => onAssignment(assignment)}><span className="date-tile"><b>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { day: '2-digit', timeZone: 'America/Lima' })}</b><small>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { month: 'short', timeZone: 'America/Lima' })}</small></span><span className="assignment-row-main"><strong>{assignment.title}</strong><small>{course?.name ?? assignment.courseId} · {assignment.points} puntos</small></span><span className={`status-pill ${submitted ? 'success' : ''}`}>{submitted ? 'Entregada' : role === 'student' ? 'Pendiente' : 'Publicada'}</span><ChevronRight size={18} className="row-chevron" /></button> }) : <EmptyState icon={ClipboardList} title="Sin tareas" detail="Las tareas publicadas aparecerán aquí." />}</div></section>
       </div>
       <aside className="dashboard-aside"><div className="aside-panel"><div className="aside-heading"><span className="aside-icon"><CalendarDays size={18} /></span><h3>Para esta semana</h3></div><p className="aside-description">Mantente al día con lo que viene.</p>{assignments.slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt)).slice(0, 3).map((assignment) => <button className="aside-task" key={assignment.id} onClick={() => onAssignment(assignment)}><span className="aside-task-dot" /><span><strong>{assignment.title}</strong><small>Entrega: {formatDate(assignment.dueAt)}</small></span></button>)}{assignments.length === 0 && <span className="muted">No hay tareas próximas.</span>}</div><div className="aside-panel"><div className="aside-heading"><span className="aside-icon purple"><Bell size={18} /></span><h3>Actividad reciente</h3></div>{notices.slice(0, 3).map((notice) => <div className="activity-item" key={notice.id}><span className="activity-dot" /><div><strong>{notice.title}</strong><p>{notice.body}</p></div></div>)}{notices.length === 0 && <span className="muted">No hay actividad reciente.</span>}<button className="text-link aside-link" onClick={() => onNavigate('inbox')}>Ver bandeja <ChevronRight size={16} /></button></div></aside>
     </div>
@@ -286,22 +300,23 @@ function CoursesView({ courseList, onCourse }: { courseList: Course[]; onCourse:
   return <><PageHeading eyebrow="APRENDIZAJE" title="Mis cursos" subtitle="Explora los cursos de tu institución." /><div className="course-grid all-courses">{courseList.map((course) => <CourseCard key={course.id} course={course} onClick={() => onCourse(course.id)} />)}{courseList.length === 0 && <EmptyState icon={BookOpen} title="Sin cursos" detail="No hay cursos que coincidan con tu búsqueda." />}</div></>
 }
 
-function CourseContent({ course, tab, role, assignments, submissions, studentId, onOpenAssignment, onOpenModuleItem, onCreateAssignment }: {
-  course: Course; tab: CourseTab; role: Role; assignments: Assignment[]; submissions: Submission[]; studentId: string;
+function CourseContent({ course, tab, role, assignments, submissions, courseModules, studentId, onOpenAssignment, onOpenModuleItem, onCreateAssignment }: {
+  course: Course; tab: CourseTab; role: Role; assignments: Assignment[]; submissions: Submission[];
+  courseModules: CourseModule[]; studentId: string;
   onOpenAssignment: (assignment: Assignment) => void; onOpenModuleItem: (id: string) => void; onCreateAssignment: () => void
 }) {
-  const courseModules = modules.filter((module) => module.courseId === course.id)
   if (tab === 'home') return <><PageHeading eyebrow={`${course.code} · ${course.term}`} title={course.name} subtitle={`Profesor: ${course.professor}`} /><div className="course-hero" style={{ '--course-color': course.color } as React.CSSProperties}><div><span>BIENVENIDO AL CURSO</span><h2>{course.name}</h2><p>Encuentra aquí tus módulos, tareas y calificaciones.</p></div><BookOpen size={112} strokeWidth={0.8} /></div><div className="course-home-grid"><div className="content-card"><div className="section-heading compact"><div><h2>Contenido del curso</h2><p>Materiales y recursos</p></div></div>{courseModules.length ? courseModules.map((module) => <div className="mini-module" key={module.id}><IconBadge icon={BookOpen} /><div><strong>{module.title}</strong><small>{module.items.length} elementos</small></div></div>) : <EmptyState icon={BookOpen} title="Contenido en preparación" detail="Pronto aparecerán los módulos del curso." />}</div><div className="content-card"><div className="section-heading compact"><div><h2>Próximas entregas</h2><p>Actividades pendientes</p></div></div>{assignments.length ? assignments.slice(0, 3).map((assignment) => <button className="compact-task" key={assignment.id} onClick={() => onOpenAssignment(assignment)}><FileText size={18} /><span><strong>{assignment.title}</strong><small>Hasta el {formatDate(assignment.dueAt)}</small></span><ChevronRight size={16} /></button>) : <EmptyState icon={ClipboardList} title="Sin tareas" detail="Todavía no hay tareas publicadas." />}</div></div></>
   if (tab === 'modules') return <><PageHeading eyebrow={course.code} title="Módulos" subtitle="Material de aprendizaje organizado por temas." />{courseModules.length ? courseModules.map((module, index) => <div className="module-panel" key={module.id}><div className="module-header"><span className="module-number">{String(index + 1).padStart(2, '0')}</span><h2>{module.title}</h2><span className="muted">{module.items.length} elementos</span></div>{module.items.map((item) => <button className="module-item" key={item.id} onClick={() => onOpenModuleItem(item.id)}><span className={`module-item-icon ${item.type}`}><FileText size={17} /></span><span>{item.title}</span><ChevronRight size={17} /></button>)}</div>) : <EmptyState icon={BookOpen} title="Sin módulos" detail="El contenido de este curso aún está en preparación." />}</>
   if (tab === 'assignments') return <><PageHeading eyebrow={course.code} title="Tareas" subtitle={role === 'teacher' ? 'Publica y revisa las actividades del curso.' : 'Consulta las consignas y entrega tu trabajo.'} action={role === 'teacher' && <Button onClick={onCreateAssignment}><Plus size={17} /> Nueva tarea</Button>} /><div className="content-card task-list">{assignments.length ? assignments.slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt)).map((assignment) => { const submission = submissions.find((item) => item.assignmentId === assignment.id && item.studentId === studentId); return <button className="task-list-row" key={assignment.id} onClick={() => onOpenAssignment(assignment)}><IconBadge icon={ClipboardList} tone="orange" /><span className="task-list-main"><strong>{assignment.title}</strong><small>Vence el {formatDateLong(assignment.dueAt)} · {assignment.points} puntos</small></span><span className={`status-pill ${submission ? 'success' : ''}`}>{role === 'teacher' ? `${submissions.filter((item) => item.assignmentId === assignment.id).length} entregas` : submission ? 'Entregada' : 'Pendiente'}</span><ChevronRight size={18} /></button> }) : <EmptyState icon={ClipboardList} title="Sin tareas" detail="Las tareas del curso aparecerán aquí." />}</div></>
-  if (tab === 'grades') return <><PageHeading eyebrow={course.code} title="Calificaciones" subtitle={role === 'teacher' ? 'Revisa las calificaciones de este curso.' : 'Consulta tus resultados.'} /><GradeTable assignments={assignments} submissions={submissions} role={role} studentId={studentId} onAssignment={onOpenAssignment} /></>
-  return <><PageHeading eyebrow={course.code} title="Personas" subtitle="Participantes del curso." /><div className="content-card people-card"><IconBadge icon={Users} tone="purple" /><div><h2>{course.students} estudiantes matriculados</h2><p>Profesor responsable: {course.professor}</p><p className="muted">La lista completa de matrículas se conectará al servicio académico.</p></div></div></>
+  if (tab === 'grades') return <><PageHeading eyebrow={course.code} title="Calificaciones" subtitle={role === 'teacher' ? 'Revisa las calificaciones de este curso.' : 'Consulta tus resultados.'} /><GradeTable assignments={assignments} submissions={submissions} courseList={[course]} role={role} studentId={studentId} onAssignment={onOpenAssignment} /></>
+  const alumnos = Array.from(new Map(submissions.map((s) => [s.studentId, s.studentName])).entries())
+  return <><PageHeading eyebrow={course.code} title="Personas" subtitle="Participantes del curso." /><div className="content-card people-card"><IconBadge icon={Users} tone="purple" /><div><h2>{alumnos.length} estudiante{alumnos.length === 1 ? '' : 's'} con actividad</h2><p>Profesor responsable: {course.professor}</p>{alumnos.length ? <div className="people-chips">{alumnos.map(([id, nombre]) => <span className="file-chip" key={id}>{nombre}</span>)}</div> : <p className="muted">Aquí aparecen los alumnos que ya entregaron alguna tarea de este curso.</p>}</div></div></>
 }
 
-function ModuleDetail({ itemId, course, onBack }: { itemId: string; course: Course; onBack: () => void }) {
-  const item = modules.flatMap((module) => module.items).find((entry) => entry.id === itemId)
+function ModuleDetail({ itemId, course, courseModules, onBack }: { itemId: string; course: Course; courseModules: CourseModule[]; onBack: () => void }) {
+  const item = courseModules.flatMap((module) => module.items).find((entry) => entry.id === itemId)
   if (!item) return null
-  return <><button className="back-link inline" onClick={onBack}><ChevronLeft size={16} /> Volver a módulos</button><PageHeading eyebrow={course.code} title={item.title} subtitle={item.type === 'assignment' ? 'Actividad del curso' : 'Material del curso'} /><div className="content-card article-card"><IconBadge icon={FileText} /><h2>{item.title}</h2><p>{item.description ?? 'Este elemento forma parte del contenido de demostración. Su contenido se cargará desde el servicio de contenidos.'}</p></div></>
+  return <><button className="back-link inline" onClick={onBack}><ChevronLeft size={16} /> Volver a módulos</button><PageHeading eyebrow={course.code} title={item.title} subtitle={item.type === 'file' ? 'Material del curso' : 'Contenido del módulo'} /><div className="content-card article-card"><IconBadge icon={FileText} /><h2>{item.title}</h2><p>{item.description ?? 'Este material está registrado en ms-cursos. La descarga usa una URL prefirmada de S3 válida por unos minutos.'}</p></div></>
 }
 
 function AssignmentDetail({ assignment, course, role, studentId, submissions, onBack, onSubmit, onGrade }: {
@@ -347,19 +362,19 @@ function CreateAssignmentModal({ course, onClose, onCreate }: { course: Course; 
   return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><span className="eyebrow">{course.code}</span><h2 id="modal-title">Nueva tarea</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={21} /></button></div><form onSubmit={submit}><label className="field-label" htmlFor="new-title">Título</label><input id="new-title" required maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ej. Entrega del proyecto" /><label className="field-label" htmlFor="new-description">Instrucciones</label><textarea id="new-description" rows={4} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe lo que deben entregar los alumnos..." /><div className="form-two-columns"><div><label className="field-label" htmlFor="new-due">Fecha límite</label><input id="new-due" type="datetime-local" required value={dueAt} onChange={(event) => setDueAt(event.target.value)} /></div><div><label className="field-label" htmlFor="new-points">Puntos</label><input id="new-points" type="number" min="1" max="100" required value={points} onChange={(event) => setPoints(event.target.value)} /></div></div><div className="modal-actions"><Button secondary onClick={onClose}>Cancelar</Button><Button type="submit">Publicar tarea</Button></div></form></div></div>
 }
 
-function CalendarView({ assignments, onAssignment }: { assignments: Assignment[]; onAssignment: (assignment: Assignment) => void }) {
+function CalendarView({ assignments, courseList, onAssignment }: { assignments: Assignment[]; courseList: Course[]; onAssignment: (assignment: Assignment) => void }) {
   const ordered = assignments.slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt))
-  return <><PageHeading eyebrow="PLANIFICACIÓN" title="Calendario" subtitle="Fechas importantes de tus cursos." /><div className="content-card calendar-list"><div className="calendar-list-title"><CalendarDays size={21} /><h2>Próximas entregas</h2></div>{ordered.length ? ordered.map((assignment) => <button className="calendar-item" key={assignment.id} onClick={() => onAssignment(assignment)}><span className="date-tile"><b>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { day: '2-digit', timeZone: 'America/Lima' })}</b><small>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { month: 'short', timeZone: 'America/Lima' })}</small></span><span><strong>{assignment.title}</strong><small>{courses.find((course) => course.id === assignment.courseId)?.name} · {formatDateLong(assignment.dueAt)}</small></span><ChevronRight size={17} /></button>) : <EmptyState icon={CalendarDays} title="Sin eventos" detail="Las fechas de tus tareas aparecerán aquí." />}</div></>
+  return <><PageHeading eyebrow="PLANIFICACIÓN" title="Calendario" subtitle="Fechas importantes de tus cursos." /><div className="content-card calendar-list"><div className="calendar-list-title"><CalendarDays size={21} /><h2>Próximas entregas</h2></div>{ordered.length ? ordered.map((assignment) => <button className="calendar-item" key={assignment.id} onClick={() => onAssignment(assignment)}><span className="date-tile"><b>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { day: '2-digit', timeZone: 'America/Lima' })}</b><small>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { month: 'short', timeZone: 'America/Lima' })}</small></span><span><strong>{assignment.title}</strong><small>{courseList.find((course) => course.id === assignment.courseId)?.name ?? assignment.courseId} · {formatDateLong(assignment.dueAt)}</small></span><ChevronRight size={17} /></button>) : <EmptyState icon={CalendarDays} title="Sin eventos" detail="Las fechas de tus tareas aparecerán aquí." />}</div></>
 }
 
 function InboxView({ notices, onMarkAllRead }: { notices: Notice[]; onMarkAllRead: () => void }) {
   return <><PageHeading eyebrow="COMUNICACIÓN" title="Bandeja" subtitle="Avisos de tus cursos." action={<Button secondary onClick={onMarkAllRead}><Check size={17} /> Marcar como leídos</Button>} /><div className="content-card inbox-list">{notices.length ? notices.map((notice) => <div className={`inbox-item ${notice.read ? '' : 'unread'}`} key={notice.id}><span className="inbox-icon"><Bell size={18} /></span><div><strong>{notice.title}</strong><p>{notice.body}</p><small>{formatDateLong(notice.date)}</small></div>{!notice.read && <span className="unread-dot" />}</div>) : <EmptyState icon={Inbox} title="Bandeja vacía" detail="Los avisos de tus cursos aparecerán aquí." />}</div></>
 }
 
-function GradesView({ role, assignments, submissions, studentId, onAssignment }: { role: Role; assignments: Assignment[]; submissions: Submission[]; studentId: string; onAssignment: (assignment: Assignment) => void }) {
-  return <><PageHeading eyebrow="SEGUIMIENTO" title="Calificaciones" subtitle={role === 'student' ? 'Consulta tus resultados por actividad.' : 'Consulta y revisa las calificaciones publicadas.'} /><GradeTable role={role} assignments={assignments} submissions={submissions} studentId={studentId} onAssignment={onAssignment} /></>
+function GradesView({ role, assignments, submissions, courseList, studentId, onAssignment }: { role: Role; assignments: Assignment[]; submissions: Submission[]; courseList: Course[]; studentId: string; onAssignment: (assignment: Assignment) => void }) {
+  return <><PageHeading eyebrow="SEGUIMIENTO" title="Calificaciones" subtitle={role === 'student' ? 'Consulta tus resultados por actividad.' : 'Consulta y revisa las calificaciones publicadas.'} /><GradeTable role={role} assignments={assignments} submissions={submissions} courseList={courseList} studentId={studentId} onAssignment={onAssignment} /></>
 }
 
-function GradeTable({ role, assignments, submissions, studentId, onAssignment }: { role: Role; assignments: Assignment[]; submissions: Submission[]; studentId: string; onAssignment: (assignment: Assignment) => void }) {
-  return <div className="content-card grade-table"><div className="table-head"><span>TAREA</span><span>CURSO</span><span>ESTADO</span><span>NOTA</span></div>{assignments.length ? assignments.map((assignment) => { const related = submissions.filter((item) => item.assignmentId === assignment.id && (role === 'teacher' || item.studentId === studentId)); const submission = related[0]; return <button className="table-row" key={assignment.id} onClick={() => onAssignment(assignment)}><span><strong>{assignment.title}</strong><small>{formatDate(assignment.dueAt)}</small></span><span>{courses.find((course) => course.id === assignment.courseId)?.name}</span><span><span className={`status-pill ${submission?.grade !== undefined ? 'success' : ''}`}>{submission?.grade !== undefined ? 'Calificada' : submission ? 'Entregada' : 'Pendiente'}</span></span><span><strong>{submission?.grade !== undefined ? `${submission.grade} / ${assignment.points}` : '—'}</strong></span></button> }) : <EmptyState icon={GraduationCap} title="Sin calificaciones" detail="Las calificaciones aparecerán aquí." />}</div>
+function GradeTable({ role, assignments, submissions, courseList, studentId, onAssignment }: { role: Role; assignments: Assignment[]; submissions: Submission[]; courseList: Course[]; studentId: string; onAssignment: (assignment: Assignment) => void }) {
+  return <div className="content-card grade-table"><div className="table-head"><span>TAREA</span><span>CURSO</span><span>ESTADO</span><span>NOTA</span></div>{assignments.length ? assignments.map((assignment) => { const related = submissions.filter((item) => item.assignmentId === assignment.id && (role === 'teacher' || item.studentId === studentId)); const submission = related[0]; return <button className="table-row" key={assignment.id} onClick={() => onAssignment(assignment)}><span><strong>{assignment.title}</strong><small>{formatDate(assignment.dueAt)}</small></span><span>{courseList.find((course) => course.id === assignment.courseId)?.name ?? assignment.courseId}</span><span><span className={`status-pill ${submission?.grade !== undefined ? 'success' : ''}`}>{submission?.grade !== undefined ? 'Calificada' : submission ? 'Entregada' : 'Pendiente'}</span></span><span><strong>{submission?.grade !== undefined ? `${submission.grade} / ${assignment.points}` : '—'}</strong></span></button> }) : <EmptyState icon={GraduationCap} title="Sin calificaciones" detail="Las calificaciones aparecerán aquí." />}</div>
 }
