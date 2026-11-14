@@ -1,0 +1,200 @@
+/* Ajustes de presentación del tema predeterminado. Los demás temas conservan skin.css. */
+:root[data-theme="oceano"] {
+  --bg: #fff;
+  --side: #333;
+  --ink: #2d3b45;
+  --muted: #667783;
+  --a1: #008eb5;
+  --a2: #e8f7fb;
+  --line: #d8dfe3;
+  --r: 4px;
+}
+
+:root[data-theme="oceano"] body {
+  font-family: "Lato", "Helvetica Neue", Arial, sans-serif;
+  font-size: 14px;
+}
+
+:root[data-theme="oceano"] .global-nav {
+  width: 64px;
+  box-shadow: none;
+}
+:root[data-theme="oceano"] .brand {
+  height: 72px;
+  background: #fff;
+  color: var(--a1);
+  border-right: 1px solid var(--line);
+}
+:root[data-theme="oceano"] .brand-mark {
+  transform: none;
+  border: 0;
+  border-radius: 0;
+  font-size: 22px;
+  letter-spacing: -5px;
+}
+:root[data-theme="oceano"] .brand-mark span,
+:root[data-theme="oceano"] .brand-name span { color: var(--a1); }
+:root[data-theme="oceano"] .brand-name { font-size: 8px; }
+:root[data-theme="oceano"] .global-nav-items { margin-top: 8px; gap: 0; }
+:root[data-theme="oceano"] .global-nav-item {
+  min-height: 62px;
+  padding: 5px 2px;
+  color: #e0e6e9;
+  font-size: 10px;
+  font-weight: 400;
+  gap: 3px;
+}
+:root[data-theme="oceano"] .global-nav-item:hover,
+:root[data-theme="oceano"] .global-nav-item.active {
+  background: #fff;
+  color: var(--a1);
+}
+:root[data-theme="oceano"] .global-nav-item.active::before { display: none; }
+:root[data-theme="oceano"] .global-nav-bottom { padding-bottom: 8px; }
+:root[data-theme="oceano"] .app-body { margin-left: 64px; }
+
+:root[data-theme="oceano"] .topbar {
+  height: 64px;
+  padding: 0 32px;
+  border-bottom: 1px solid var(--line);
+}
+:root[data-theme="oceano"] .breadcrumbs,
+:root[data-theme="oceano"] .breadcrumbs button,
+:root[data-theme="oceano"] .breadcrumbs b { color: var(--a1); font-size: 14px; }
+:root[data-theme="oceano"] .breadcrumbs b { font-weight: 400; }
+:root[data-theme="oceano"] .search-box {
+  background: #fff;
+  border: 1px solid #c7d0d6;
+  border-radius: 4px;
+  height: 34px;
+}
+:root[data-theme="oceano"] .icon-button { color: var(--a1); border-radius: 3px; }
+:root[data-theme="oceano"] .avatar { background: var(--a1); color: #fff; }
+:root[data-theme="oceano"] .context-bar {
+  height: auto;
+  min-height: 52px;
+  padding: 8px 32px;
+  gap: 20px;
+  background: #f7f9fa;
+}
+:root[data-theme="oceano"] .context-label { letter-spacing: .4px; font-size: 9px; }
+:root[data-theme="oceano"] .context-value { font-size: 12px; font-weight: 600; }
+:root[data-theme="oceano"] .live-pill {
+  border-radius: 3px;
+  background: #fff;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+:root[data-theme="oceano"] .main-content { padding: 30px 38px 70px; }
+:root[data-theme="oceano"] .page-heading { margin-bottom: 24px; }
+:root[data-theme="oceano"] .page-heading h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin: 3px 0 6px;
+}
+:root[data-theme="oceano"] .page-heading p { font-size: 14px; }
+:root[data-theme="oceano"] .eyebrow { font-size: 10px; letter-spacing: .5px; }
+:root[data-theme="oceano"] .section-heading h2 { font-size: 20px; font-weight: 600; letter-spacing: 0; }
+:root[data-theme="oceano"] .section-heading p { font-size: 13px; }
+:root[data-theme="oceano"] .section-block { margin-top: 32px; }
+:root[data-theme="oceano"] .text-link,
+:root[data-theme="oceano"] .back-link { font-size: 13px; font-weight: 500; }
+
+:root[data-theme="oceano"] .summary-card,
+:root[data-theme="oceano"] .content-card,
+:root[data-theme="oceano"] .aside-panel,
+:root[data-theme="oceano"] .course-card,
+:root[data-theme="oceano"] .module-panel,
+:root[data-theme="oceano"] .modal,
+:root[data-theme="oceano"] .empty-state,
+:root[data-theme="oceano"] .review-card,
+:root[data-theme="oceano"] .panel-list {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: none;
+}
+:root[data-theme="oceano"] .summary-card:hover,
+:root[data-theme="oceano"] .course-card:hover {
+  transform: none;
+  box-shadow: 0 2px 9px #2d3b451b;
+  border-color: #b7c8d1;
+}
+:root[data-theme="oceano"] .summary-card { height: 82px; padding: 14px 18px; }
+:root[data-theme="oceano"] .summary-card strong { color: var(--ink); font-size: 25px; }
+:root[data-theme="oceano"] .summary-card span:last-child { color: var(--muted); font-size: 12px; }
+:root[data-theme="oceano"] .icon-badge,
+:root[data-theme="oceano"] .aside-icon { border-radius: 3px; }
+
+:root[data-theme="oceano"] .course-card-art {
+  height: 12px;
+  background: var(--course-color);
+}
+:root[data-theme="oceano"] .course-card-art::after,
+:root[data-theme="oceano"] .course-art-ring { display: none; }
+:root[data-theme="oceano"] .course-code-badge {
+  display: none;
+}
+:root[data-theme="oceano"] .course-card-body { padding: 20px; }
+:root[data-theme="oceano"] .course-card-title-row strong { color: var(--a1); font-size: 16px; font-weight: 600; }
+:root[data-theme="oceano"] .course-card-body > .muted { font-size: 12px; }
+:root[data-theme="oceano"] .course-card-meta { font-size: 11px; margin-top: 24px; }
+:root[data-theme="oceano"] .progress-track { height: 4px; border-radius: 0; }
+:root[data-theme="oceano"] .progress-track > span { border-radius: 0; }
+
+:root[data-theme="oceano"] .button { min-height: 36px; border-radius: 4px; font-weight: 600; }
+:root[data-theme="oceano"] .button.primary { background: var(--a1); }
+:root[data-theme="oceano"] .button.secondary { background: #fff; border: 1px solid #c7d0d6; }
+:root[data-theme="oceano"] .button:hover { transform: none; }
+:root[data-theme="oceano"] .button:active { transform: none; }
+:root[data-theme="oceano"] .status-pill { border-radius: 3px; }
+:root[data-theme="oceano"] .assignment-row,
+:root[data-theme="oceano"] .task-list-row,
+:root[data-theme="oceano"] .calendar-item,
+:root[data-theme="oceano"] .module-item { background: #fff; }
+:root[data-theme="oceano"] .assignment-row:hover,
+:root[data-theme="oceano"] .task-list-row:hover,
+:root[data-theme="oceano"] .calendar-item:hover,
+:root[data-theme="oceano"] .module-item:hover { background: #f2f9fc; }
+:root[data-theme="oceano"] .assignment-row-main strong,
+:root[data-theme="oceano"] .task-list-main strong,
+:root[data-theme="oceano"] .aside-task strong { color: var(--a1); font-size: 13px; }
+:root[data-theme="oceano"] .date-tile { border-radius: 3px; }
+:root[data-theme="oceano"] .course-sidebar {
+  width: 224px;
+  border-right: 1px solid var(--line);
+}
+:root[data-theme="oceano"] .course-content { width: calc(100% - 224px); }
+:root[data-theme="oceano"] .course-sidebar nav button { font-size: 14px; font-weight: 400; }
+:root[data-theme="oceano"] .course-sidebar nav button.selected {
+  background: #fff;
+  color: var(--a1);
+  font-weight: 600;
+}
+:root[data-theme="oceano"] .course-sidebar nav button.selected::before {
+  top: 0;
+  bottom: 0;
+  background: var(--a1);
+}
+:root[data-theme="oceano"] .course-hero { border-radius: 4px; }
+:root[data-theme="oceano"] .module-header { background: #f7f9fa; }
+:root[data-theme="oceano"] .x-fab,
+:root[data-theme="oceano"] .x-panel,
+:root[data-theme="oceano"] .login-card { border-radius: 4px; }
+:root[data-theme="oceano"] .x-fab { box-shadow: 0 2px 8px #2d3b4526; }
+
+@media (max-width: 850px) {
+  :root[data-theme="oceano"] .course-sidebar { width: 175px; }
+  :root[data-theme="oceano"] .course-content { width: calc(100% - 175px); }
+}
+@media (max-width: 650px) {
+  :root[data-theme="oceano"] .global-nav { width: 76px; }
+  :root[data-theme="oceano"] .app-body { margin-left: 0; }
+  :root[data-theme="oceano"] .topbar { padding: 0 15px; }
+  :root[data-theme="oceano"] .context-bar { padding: 8px 15px; }
+  :root[data-theme="oceano"] .main-content { padding: 22px 16px 70px; }
+  :root[data-theme="oceano"] .course-sidebar { width: 100%; }
+  :root[data-theme="oceano"] .course-content { width: 100%; }
+  :root[data-theme="oceano"] .course-sidebar nav button.selected::before { top: auto; bottom: 0; }
+}
