@@ -1,34 +1,75 @@
 # CanvaSLS · frontend web
 
-Frontend React + TypeScript creado con Vite, Tailwind CSS 4 y npm. Preparado para desplegarse en AWS Amplify.
+Aplicación web de CanvaSLS, la plataforma académica multi-institución. Es una
+SPA en React + TypeScript construida con Vite. La sesión se inicia contra
+`ms-auth` y, a partir de ahí, la interfaz opera cursos, módulos y materiales,
+tareas y entregas, calificaciones, riesgo académico y notificaciones.
 
-## Ejecutar
+## Arquitectura
+
+- Se despliega en **AWS Amplify Hosting** (`amplify.yml`).
+- Consume **cinco APIs REST** publicadas en API Gateway, una por microservicio:
+  `auth`, `cursos`, `eval`, `analitica` y `notif`.
+- Cada API se configura con una variable `VITE_API_*` (una URL por servicio).
+- Todas las llamadas envían el **token que devuelve el login**. El tenant y el
+  rol se leen del token, no de la interfaz, así que cada usuario solo ve los
+  datos de su institución.
+- Vite **incrusta las variables en el bundle al compilar**. Si cambias una URL
+  en Amplify, debes volver a desplegar la app para que tome el nuevo valor.
+
+Flujo: Amplify → APIs REST (`VITE_API_*`) → token del login en cada petición.
+
+## Variables de entorno
+
+| Variable | Servicio | Uso |
+| --- | --- | --- |
+| `VITE_API_AUTH` | `ms-auth` | login, logout y sesión |
+| `VITE_API_CURSOS` | `ms-cursos` | cursos, módulos, matrículas y materiales en S3 |
+| `VITE_API_EVAL` | `ms-evaluaciones` | tareas, entregas y notas |
+| `VITE_API_ANALITICA` | `ms-analitica` | indicadores y semáforo de riesgo |
+| `VITE_API_NOTIF` | `ms-notificaciones` | avisos y traza de eventos |
+
+Copia `.env.example` a `.env.local` y completa el `<api-id>` de cada despliegue.
+Las URLs no llevan barra final.
+
+## Usuarios de prueba
+
+Las cuentas se siembran por institución. Dominios disponibles:
+
+- `utec.edu.pe`
+- `inorte.edu.pe`
+- `andino.edu.pe`
+
+Usuarios:
+
+- `profe` — docente
+- `ana.torres` — alumna
+- `admin` — administrador
+
+El correo se forma con el usuario y el dominio de la institución elegida en el
+login (por ejemplo, `profe@utec.edu.pe`). La clave es `Demo2026!`.
+
+## Ejecutar en local
 
 ```bash
 npm install
 npm run dev
 ```
 
-Para verificar la compilación:
+## Compilar y verificar
 
 ```bash
 npm run typecheck
 npm run build
 ```
 
-## Estado actual
-
-La primera versión permite explorar dos instituciones ficticias (UTEC y Norte) y cambiar entre las vistas de alumno y profesor. Incluye Dashboard, cursos, módulos, tareas, calendario, bandeja y calificaciones. El profesor puede publicar una tarea, el alumno puede registrar una entrega y el profesor puede calificarla. El estado se conserva en `localStorage` para facilitar una demo local; usa «Reiniciar» para volver a los datos iniciales.
-
-Esta versión **todavía no tiene autenticación ni API**. El selector de rol y tenant es solo una herramienta de demostración. Tampoco sube el contenido del archivo seleccionado: únicamente muestra y guarda su nombre. La integración posterior conectará Cognito, los microservicios y S3.
+El build genera la carpeta `dist/`, que es la que se publica en Amplify.
 
 ## Estructura
 
-- `src/data.ts`: tipos, datos de demostración y persistencia local.
-- `src/App.tsx`: navegación, pantallas y flujo de tarea/entrega/nota.
-- `src/styles.css`: Tailwind y estilos de interfaz responsive.
-- `amplify.yml`: construcción para AWS Amplify Hosting.
-
-## Próximo paso de integración
-
-Definir un cliente HTTP con `tenantId` y token de Cognito, y reemplazar `localStorage` por respuestas de los servicios Académico, Contenidos, Tareas, Evaluación y Notificaciones. El servidor debe validar permisos y aislamiento de tenants; el selector visual no concede acceso por sí mismo.
+- `src/App.tsx`: navegación y pantallas de cursos, tareas, entregas y notas.
+- `src/data.ts`: tipos de la interfaz y utilidades de formato.
+- `src/live/api.ts`: cliente HTTP de los microservicios; la sesión vive en `sessionStorage`.
+- `src/live/adapt.ts`: traducción entre el contrato del backend y los tipos de la interfaz.
+- `src/views/Riesgo.tsx`: panel de riesgo y traza de eventos.
+- `src/styles.css`, `src/skin.css`, `src/canvas.css`: estilos de la interfaz.
