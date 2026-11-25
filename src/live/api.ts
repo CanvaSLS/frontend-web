@@ -113,8 +113,29 @@ export const modificarCurso = (id: string, c: Partial<Pick<Curso, 'nombre' | 'de
   llamar<Curso>('cursos', `cursos/${id}`, { metodo: 'PUT', cuerpo: c })
 export const eliminarCurso = (id: string) =>
   llamar<{ eliminado: string }>('cursos', `cursos/${id}`, { metodo: 'DELETE' })
-export const publicarModulo = (curso: string, titulo: string) =>
-  llamar<Modulo>('cursos', `cursos/${curso}/modulos`, { metodo: 'POST', cuerpo: { titulo } })
+export const publicarModulo = (curso: string, titulo: string, descripcion?: string) =>
+  llamar<Modulo>('cursos', `cursos/${curso}/modulos`, {
+    metodo: 'POST', cuerpo: { titulo, ...(descripcion ? { descripcion } : {}) },
+  })
+export interface MaterialSubida { material: { material_id: string; nombre: string }; upload_url: string; metodo: string; expira_seg: number }
+export const agregarMaterial = (curso: string, modulo: string, nombre_archivo: string, content_type: string) =>
+  llamar<MaterialSubida>('cursos', `cursos/${curso}/modulos/${modulo}/materiales`, {
+    metodo: 'POST', cuerpo: { nombre_archivo, content_type },
+  })
+export const descargarMaterial = (curso: string, modulo: string, material: string) =>
+  llamar<{ url: string; nombre: string }>('cursos', `cursos/${curso}/modulos/${modulo}/materiales/${material}/descarga`)
+/**
+ * Sube el archivo a la URL prefirmada de S3. El `Content-Type` debe coincidir
+ * con el que se declaró al registrar el material, o S3 rechaza la firma.
+ */
+export const subirASS3 = async (url: string, file: File): Promise<void> => {
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    body: file,
+  })
+  if (!r.ok) throw new Error(`La subida a S3 falló (HTTP ${r.status})`)
+}
 
 // ------------------------------------------------------------------ ms-evaluaciones
 export const tareas = (curso: string) =>

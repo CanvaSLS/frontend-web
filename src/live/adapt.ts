@@ -86,7 +86,7 @@ export function aCourseModule(m: Modulo, cursoId: string): CourseModule {
     items.push({ id: `${m.modulo_id}-intro`, title: m.titulo, type: 'page', description: m.descripcion })
   }
   for (const mat of m.materiales ?? []) {
-    items.push({ id: mat.material_id, title: mat.nombre, type: 'file' })
+    items.push({ id: mat.material_id, title: mat.nombre, type: 'file', moduleId: m.modulo_id })
   }
   return {
     id: m.modulo_id,

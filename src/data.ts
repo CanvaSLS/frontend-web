@@ -27,6 +27,8 @@ export interface ModuleItem {
   title: string
   type: 'page' | 'assignment' | 'file'
   description?: string
+  /** Módulo dueño del material, necesario para pedir su descarga. */
+  moduleId?: string
 }
 
 export interface CourseModule {

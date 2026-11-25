@@ -12,7 +12,7 @@ import {
 } from './data'
 import { Login } from './live/Login'
 import { Riesgo, TarjetaRiesgoAlumno } from './views/Riesgo'
-import { alCaducarSesion, guardarSesion, leerSesion, logout, matriculas } from './live/api'
+import { agregarMaterial, alCaducarSesion, descargarMaterial, guardarSesion, leerSesion, logout, matriculas, publicarModulo, subirASS3 } from './live/api'
 import { nombreTenant } from './live/config'
 import { aRole } from './live/adapt'
 import { useAcademia } from './live/useAcademia'
@@ -96,6 +96,7 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState('')
+  const [refrescoModulos, setRefrescoModulos] = useState(0)
 
   // El backend ya devuelve solo lo del tenant del token: no se filtra en el cliente.
   const tenantCourses = datos.courses
@@ -112,11 +113,17 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  // Los módulos se piden al abrir el curso, no en la carga inicial.
+  // Los módulos se piden al abrir el curso y cada vez que se publican o suben materiales.
   const cargarModulos = datos.cargarModulos
   useEffect(() => {
     if (selectedCourseId) cargarModulos(selectedCourseId)
-  }, [selectedCourseId, cargarModulos])
+  }, [selectedCourseId, cargarModulos, refrescoModulos])
+
+  /** Invalida la caché de módulos y vuelve a pedir el curso abierto. */
+  function recargarModulos() {
+    datos.recargar()
+    setRefrescoModulos((valor) => valor + 1)
+  }
 
   /** Envuelve una mutación para mostrar el error de la API en lugar de perderlo. */
   async function ejecutar(accion: () => Promise<void>, exito: string) {
@@ -238,7 +245,7 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
         <main className="main-content course-content">
           {selectedAssignment ? <AssignmentDetail assignment={selectedAssignment} course={selectedCourse} role={role} studentId={studentId} submissions={datos.submissions.filter((item) => item.assignmentId === selectedAssignment.id)} onBack={() => setSelectedAssignmentId(null)} onSubmit={submitAssignment} onGrade={gradeSubmission} />
             : selectedModuleItemId ? <ModuleDetail itemId={selectedModuleItemId} course={selectedCourse} courseModules={courseModules} onBack={() => setSelectedModuleItemId(null)} />
-              : <CourseContent course={selectedCourse} tab={courseTab} role={role} assignments={tenantAssignments.filter((item) => item.courseId === selectedCourse.id)} submissions={datos.submissions} courseModules={courseModules} studentId={studentId} onOpenAssignment={openAssignment} onOpenModuleItem={setSelectedModuleItemId} onCreateAssignment={() => setShowCreateAssignment(true)} />}
+              : <CourseContent course={selectedCourse} tab={courseTab} role={role} assignments={tenantAssignments.filter((item) => item.courseId === selectedCourse.id)} submissions={datos.submissions} courseModules={courseModules} studentId={studentId} onOpenAssignment={openAssignment} onOpenModuleItem={setSelectedModuleItemId} onCreateAssignment={() => setShowCreateAssignment(true)} onNotify={setToast} onReloadModulos={recargarModulos} />}
         </main>
       </div> : <main className="main-content root-content">
         {section === 'dashboard' && <Dashboard tenant={tenantId} role={role} userName={userName} courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} assignments={tenantAssignments} notices={tenantNotices} submissions={datos.submissions} studentId={studentId} onCourse={openCourse} onAssignment={openAssignment} onNavigate={navigate} />}
@@ -295,16 +302,75 @@ function CoursesView({ courseList, onCourse }: { courseList: Course[]; onCourse:
   return <><PageHeading eyebrow="APRENDIZAJE" title="Mis cursos" subtitle="Explora los cursos de tu institución." /><div className="course-grid all-courses">{courseList.map((course) => <CourseCard key={course.id} course={course} onClick={() => onCourse(course.id)} />)}{courseList.length === 0 && <EmptyState icon={BookOpen} title="Sin cursos" detail="No hay cursos que coincidan con tu búsqueda." />}</div></>
 }
 
-function CourseContent({ course, tab, role, assignments, submissions, courseModules, studentId, onOpenAssignment, onOpenModuleItem, onCreateAssignment }: {
+function CourseContent({ course, tab, role, assignments, submissions, courseModules, studentId, onOpenAssignment, onOpenModuleItem, onCreateAssignment, onNotify, onReloadModulos }: {
   course: Course; tab: CourseTab; role: Role; assignments: Assignment[]; submissions: Submission[];
   courseModules: CourseModule[]; studentId: string;
   onOpenAssignment: (assignment: Assignment) => void; onOpenModuleItem: (id: string) => void; onCreateAssignment: () => void
+  onNotify: (mensaje: string) => void; onReloadModulos: () => void
 }) {
   if (tab === 'home') return <><PageHeading eyebrow={`${course.code} · ${course.term}`} title={course.name} subtitle={`Profesor: ${course.professor}`} /><div className="course-hero" style={{ '--course-color': course.color } as React.CSSProperties}><div><span>BIENVENIDO AL CURSO</span><h2>{course.name}</h2><p>Encuentra aquí tus módulos, tareas y calificaciones.</p></div><BookOpen size={112} strokeWidth={0.8} /></div><div className="course-home-grid"><div className="content-card"><div className="section-heading compact"><div><h2>Contenido del curso</h2><p>Materiales y recursos</p></div></div>{courseModules.length ? courseModules.map((module) => <div className="mini-module" key={module.id}><IconBadge icon={BookOpen} /><div><strong>{module.title}</strong><small>{module.items.length} elementos</small></div></div>) : <EmptyState icon={BookOpen} title="Contenido en preparación" detail="Pronto aparecerán los módulos del curso." />}</div><div className="content-card"><div className="section-heading compact"><div><h2>Próximas entregas</h2><p>Actividades pendientes</p></div></div>{assignments.length ? assignments.slice(0, 3).map((assignment) => <button className="compact-task" key={assignment.id} onClick={() => onOpenAssignment(assignment)}><FileText size={18} /><span><strong>{assignment.title}</strong><small>Hasta el {formatDate(assignment.dueAt)}</small></span><ChevronRight size={16} /></button>) : <EmptyState icon={ClipboardList} title="Sin tareas" detail="Todavía no hay tareas publicadas." />}</div></div></>
-  if (tab === 'modules') return <><PageHeading eyebrow={course.code} title="Módulos" subtitle="Material de aprendizaje organizado por temas." />{courseModules.length ? courseModules.map((module, index) => <div className="module-panel" key={module.id}><div className="module-header"><span className="module-number">{String(index + 1).padStart(2, '0')}</span><h2>{module.title}</h2><span className="muted">{module.items.length} elementos</span></div>{module.items.map((item) => <button className="module-item" key={item.id} onClick={() => onOpenModuleItem(item.id)}><span className={`module-item-icon ${item.type}`}><FileText size={17} /></span><span>{item.title}</span><ChevronRight size={17} /></button>)}</div>) : <EmptyState icon={BookOpen} title="Sin módulos" detail="El contenido de este curso aún está en preparación." />}</>
+  if (tab === 'modules') return <ModulesTab course={course} role={role} courseModules={courseModules} onOpenModuleItem={onOpenModuleItem} onNotify={onNotify} onReloadModulos={onReloadModulos} />
   if (tab === 'assignments') return <><PageHeading eyebrow={course.code} title="Tareas" subtitle={role === 'teacher' ? 'Publica y revisa las actividades del curso.' : 'Consulta las consignas y entrega tu trabajo.'} action={role === 'teacher' && <Button onClick={onCreateAssignment}><Plus size={17} /> Nueva tarea</Button>} /><div className="content-card task-list">{assignments.length ? assignments.slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt)).map((assignment) => { const submission = submissions.find((item) => item.assignmentId === assignment.id && item.studentId === studentId); return <button className="task-list-row" key={assignment.id} onClick={() => onOpenAssignment(assignment)}><IconBadge icon={ClipboardList} tone="orange" /><span className="task-list-main"><strong>{assignment.title}</strong><small>Vence el {formatDateLong(assignment.dueAt)} · {assignment.points} puntos</small></span><span className={`status-pill ${submission ? 'success' : ''}`}>{role === 'teacher' ? `${submissions.filter((item) => item.assignmentId === assignment.id).length} entregas` : submission ? 'Entregada' : 'Pendiente'}</span><ChevronRight size={18} /></button> }) : <EmptyState icon={ClipboardList} title="Sin tareas" detail="Las tareas del curso aparecerán aquí." />}</div></>
   if (tab === 'grades') return <><PageHeading eyebrow={course.code} title="Calificaciones" subtitle={role === 'teacher' ? 'Revisa las calificaciones de este curso.' : 'Consulta tus resultados.'} /><GradeTable assignments={assignments} submissions={submissions} courseList={[course]} role={role} studentId={studentId} onAssignment={onOpenAssignment} /></>
   return <PeopleTab course={course} role={role} submissions={submissions} />
+}
+
+/**
+ * Pestaña "Módulos". El docente publica módulos y sube materiales a S3; cualquier
+ * usuario puede abrir el detalle y descargar un archivo.
+ */
+function ModulesTab({ course, role, courseModules, onOpenModuleItem, onNotify, onReloadModulos }: {
+  course: Course; role: Role; courseModules: CourseModule[]; onOpenModuleItem: (id: string) => void
+  onNotify: (mensaje: string) => void; onReloadModulos: () => void
+}) {
+  const [showPublish, setShowPublish] = useState(false)
+  const [subiendo, setSubiendo] = useState<string | null>(null)
+
+  async function subirMaterial(moduloId: string, file: File) {
+    setSubiendo(moduloId)
+    try {
+      const r = await agregarMaterial(course.id, moduloId, file.name, file.type || 'application/octet-stream')
+      await subirASS3(r.upload_url, file)
+      onNotify('Material agregado · se subió el archivo a S3')
+      onReloadModulos()
+    } catch (e) {
+      onNotify(e instanceof Error ? e.message : 'No se pudo subir el material')
+    } finally {
+      setSubiendo(null)
+    }
+  }
+
+  async function publicar(titulo: string, descripcion: string) {
+    try {
+      await publicarModulo(course.id, titulo, descripcion)
+      setShowPublish(false)
+      onNotify('Módulo publicado · evento ModuloPublicado emitido')
+      onReloadModulos()
+    } catch (e) {
+      onNotify(e instanceof Error ? e.message : 'No se pudo publicar el módulo')
+    }
+  }
+
+  return <>
+    <PageHeading eyebrow={course.code} title="Módulos" subtitle="Material de aprendizaje organizado por temas." action={role === 'teacher' && <Button onClick={() => setShowPublish(true)}><Plus size={17} /> Publicar módulo</Button>} />
+    {courseModules.length ? courseModules.map((module, index) => <div className="module-panel" key={module.id}>
+      <div className="module-header"><span className="module-number">{String(index + 1).padStart(2, '0')}</span><h2>{module.title}</h2><span className="muted">{module.items.length} elementos</span></div>
+      {module.items.map((item) => <button className="module-item" key={item.id} onClick={() => onOpenModuleItem(item.id)}><span className={`module-item-icon ${item.type}`}><FileText size={17} /></span><span>{item.title}</span><ChevronRight size={17} /></button>)}
+      {role === 'teacher' && <label className="module-item" style={{ cursor: 'pointer' }}><span className="module-item-icon file"><CloudUpload size={17} /></span><span>{subiendo === module.id ? 'Subiendo material...' : 'Agregar material'}</span><input type="file" hidden disabled={subiendo === module.id} onChange={(event) => { const file = event.target.files?.[0]; if (file) void subirMaterial(module.id, file); event.target.value = '' }} /></label>}
+    </div>) : <EmptyState icon={BookOpen} title="Sin módulos" detail="El contenido de este curso aún está en preparación." />}
+    {showPublish && <PublishModuleModal course={course} onClose={() => setShowPublish(false)} onPublish={publicar} />}
+  </>
+}
+
+function PublishModuleModal({ course, onClose, onPublish }: { course: Course; onClose: () => void; onPublish: (titulo: string, descripcion: string) => void }) {
+  const [titulo, setTitulo] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!titulo.trim()) return
+    onPublish(titulo.trim(), descripcion.trim())
+  }
+  return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-modulo" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><span className="eyebrow">{course.code}</span><h2 id="modal-modulo">Publicar módulo</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={21} /></button></div><form onSubmit={submit}><label className="field-label" htmlFor="mod-titulo">Título</label><input id="mod-titulo" required maxLength={120} value={titulo} onChange={(event) => setTitulo(event.target.value)} placeholder="Ej. Unidad 3: colas y eventos" /><label className="field-label" htmlFor="mod-desc">Descripción</label><textarea id="mod-desc" rows={4} value={descripcion} onChange={(event) => setDescripcion(event.target.value)} placeholder="Describe el contenido del módulo..." /><div className="modal-actions"><Button secondary onClick={onClose}>Cancelar</Button><Button type="submit">Publicar módulo</Button></div></form></div></div>
 }
 
 /**
@@ -351,8 +417,25 @@ function PeopleTab({ course, role, submissions }: { course: Course; role: Role; 
 
 function ModuleDetail({ itemId, course, courseModules, onBack }: { itemId: string; course: Course; courseModules: CourseModule[]; onBack: () => void }) {
   const item = courseModules.flatMap((module) => module.items).find((entry) => entry.id === itemId)
+  const [descargando, setDescargando] = useState(false)
+  const [error, setError] = useState('')
+
+  async function descargar() {
+    if (!item || !item.moduleId) return
+    setDescargando(true)
+    setError('')
+    try {
+      const r = await descargarMaterial(course.id, item.moduleId, item.id)
+      window.open(r.url, '_blank', 'noopener')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo descargar el material')
+    } finally {
+      setDescargando(false)
+    }
+  }
+
   if (!item) return null
-  return <><button className="back-link inline" onClick={onBack}><ChevronLeft size={16} /> Volver a módulos</button><PageHeading eyebrow={course.code} title={item.title} subtitle={item.type === 'file' ? 'Material del curso' : 'Contenido del módulo'} /><div className="content-card article-card"><IconBadge icon={FileText} /><h2>{item.title}</h2><p>{item.description ?? 'Este material está registrado en ms-cursos. La descarga usa una URL prefirmada de S3 válida por unos minutos.'}</p></div></>
+  return <><button className="back-link inline" onClick={onBack}><ChevronLeft size={16} /> Volver a módulos</button><PageHeading eyebrow={course.code} title={item.title} subtitle={item.type === 'file' ? 'Material del curso' : 'Contenido del módulo'} /><div className="content-card article-card"><IconBadge icon={FileText} /><h2>{item.title}</h2>{item.description && <p>{item.description}</p>}{item.type === 'file' && item.moduleId && <div style={{ marginTop: 16 }}>{error && <div className="load-bar error" role="alert"><TriangleAlert size={17} /> {error}</div>}<button className="button primary" onClick={descargar} disabled={descargando}><CloudUpload size={17} /> {descargando ? 'Preparando descarga...' : 'Descargar'}</button></div>}</div></>
 }
 
 function AssignmentDetail({ assignment, course, role, studentId, submissions, onBack, onSubmit, onGrade }: {
