@@ -1,8 +1,8 @@
 /**
  * Tipos de la interfaz y utilidades de formato.
  *
- * Son las formas que consumen las vistas. Los datos ya no se inventan aquí:
- * llegan de los microservicios y se traducen en `live/adapt.ts`.
+ * Son las formas que consumen las vistas; los datos llegan de los microservicios
+ * y se traducen en `live/adapt.ts`.
  */
 export type Role = 'student' | 'teacher'
 /** Id de tenant tal como lo devuelve el token: UTEC, NORTE, ANDINO. */
