@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Bell, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight,
   CircleHelp, ClipboardList, CloudUpload, FileText, GraduationCap, Home,
-  Inbox, LayoutDashboard, LogOut, Menu, MoreHorizontal, Plus, RefreshCw, Search,
+  Inbox, LayoutDashboard, LogOut, Menu, MoreHorizontal, Plus, RefreshCw, Search, ShieldAlert,
   TriangleAlert, Users, X,
 } from 'lucide-react'
 import {
@@ -11,6 +11,7 @@ import {
   type Role, type Section, type Submission,
 } from './data'
 import { Login } from './live/Login'
+import { Riesgo, TarjetaRiesgoAlumno } from './views/Riesgo'
 import { alCaducarSesion, guardarSesion, leerSesion } from './live/api'
 import { nombreTenant } from './live/config'
 import { aRole } from './live/adapt'
@@ -26,6 +27,7 @@ const navigation: NavigationItem[] = [
   { id: 'calendar', label: 'Calendario', icon: CalendarDays },
   { id: 'inbox', label: 'Bandeja', icon: Inbox },
   { id: 'grades', label: 'Calificaciones', icon: GraduationCap },
+  { id: 'riesgo', label: 'Riesgo', icon: ShieldAlert, role: 'teacher' },
 ]
 
 const courseTabs: { id: CourseTab; label: string; icon: Icon }[] = [
@@ -244,6 +246,7 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
         {section === 'calendar' && <CalendarView assignments={tenantAssignments} courseList={tenantCourses} onAssignment={openAssignment} />}
         {section === 'inbox' && <InboxView notices={tenantNotices} onMarkAllRead={markAllRead} />}
         {section === 'grades' && <GradesView role={role} assignments={tenantAssignments} submissions={datos.submissions} courseList={tenantCourses} studentId={studentId} onAssignment={openAssignment} />}
+        {section === 'riesgo' && <Riesgo />}
       </main>}
     </div>
 
@@ -274,6 +277,7 @@ function Dashboard({ tenant, role, userName, courseList, assignments, notices, s
     <PageHeading eyebrow={`ESPACIO ACADÉMICO · ${tenant}`} title={`Hola, ${userName.split(' ')[0]} 👋`} subtitle={role === 'student' ? 'Aquí tienes un resumen de tus cursos y próximas actividades.' : 'Administra tus cursos y revisa la actividad de tus estudiantes.'} />
     <div className="dashboard-grid">
       <div className="dashboard-main">
+        {role === 'student' && <TarjetaRiesgoAlumno studentId={studentId} />}
         <section className="summary-grid">
           <div className="summary-card"><IconBadge icon={BookOpen} tone="blue" /><div><strong>{courseList.length}</strong><span>Cursos activos</span></div></div>
           <div className="summary-card"><IconBadge icon={ClipboardList} tone="orange" /><div><strong>{role === 'student' ? pending.length : assignments.length}</strong><span>{role === 'student' ? 'Tareas pendientes' : 'Tareas publicadas'}</span></div></div>

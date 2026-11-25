@@ -1,6 +1,6 @@
 import { API } from './config'
 import type {
-  Curso, Entrega, Indicador, Matricula, Modulo, Notificacion, Resumen, Sesion, Tarea,
+  Curso, Entrega, EventoTraza, Indicador, Matricula, Modulo, Notificacion, Resumen, Sesion, Tarea,
 } from './types'
 
 const CLAVE = 'sp_sesion'
@@ -137,9 +137,10 @@ export const misNotas = () =>
 // ------------------------------------------------------------------ ms-analitica
 export const resumenRiesgo = () =>
   llamar<{ total: number; niveles: Record<string, number> }>('analitica', 'analitica/resumen')
-export const riesgo = (nivel: string, limit = 12) =>
-  llamar<{ alumnos: Indicador[] }>('analitica', 'analitica/riesgo', { query: { nivel, limit } })
-    .then((r) => r.alumnos ?? [])
+export const riesgo = (nivel: string, limit = 25, cursor?: string) =>
+  llamar<{ alumnos: Indicador[]; cursor: string | null }>('analitica', 'analitica/riesgo', {
+    query: { nivel, limit, cursor },
+  })
 export const indicadores = (alumno: string) =>
   llamar<Indicador>('analitica', `analitica/alumnos/${alumno}`)
 
@@ -148,3 +149,6 @@ export const notificaciones = (limit = 20) =>
   llamar<{ notificaciones: Notificacion[]; no_leidas: number }>('notif', 'notificaciones', { query: { limit } })
 export const marcarTodas = () =>
   llamar<{ marcadas: number }>('notif', 'notificaciones/leida-todas', { metodo: 'POST', cuerpo: {} })
+export const trazaEventos = (limit = 15) =>
+  llamar<{ eventos: EventoTraza[] }>('notif', 'notificaciones/traza', { query: { limit } })
+    .then((r) => r.eventos ?? [])

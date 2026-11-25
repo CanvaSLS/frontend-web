@@ -44,4 +44,9 @@ export interface Notificacion {
   leida: boolean; evento: string; creado_en: string; origen?: string
 }
 
+export interface EventoTraza {
+  evento: string; tipo: string; titulo: string; mensaje: string
+  origen?: string; event_id: string; creado_en: string; user_id?: string
+}
+
 export interface Matricula { curso_id: string; alumno_id: string; alumno_nombre?: string; estado?: string }
