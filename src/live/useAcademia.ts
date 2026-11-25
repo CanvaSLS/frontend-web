@@ -1,8 +1,7 @@
 /**
  * Única fuente de datos de la aplicación conectada.
  *
- * Sustituye a loadDemoState/saveDemoState: en lugar de leer localStorage,
- * consulta los microservicios y mantiene en memoria lo que las vistas necesitan.
+ * Consulta los microservicios y mantiene en memoria lo que las vistas necesitan.
  * Las mutaciones llaman a la API y recargan solo la parte afectada.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
