@@ -174,6 +174,9 @@ export const notificaciones = (limit = 20) =>
   llamar<{ notificaciones: Notificacion[]; no_leidas: number }>('notif', 'notificaciones', { query: { limit } })
 export const marcarTodas = () =>
   llamar<{ marcadas: number }>('notif', 'notificaciones/leida-todas', { metodo: 'POST', cuerpo: {} })
+/** Marca un solo aviso por su id (`usuario_ts`), el que devuelve la bandeja. */
+export const marcarLeida = (usuarioTs: string) =>
+  llamar<Notificacion>('notif', 'notificaciones/leida', { metodo: 'POST', cuerpo: { id: usuarioTs } })
 export const trazaEventos = (limit = 15) =>
   llamar<{ eventos: EventoTraza[] }>('notif', 'notificaciones/traza', { query: { limit } })
     .then((r) => r.eventos ?? [])

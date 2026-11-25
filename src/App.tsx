@@ -190,6 +190,10 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
     void ejecutar(() => datos.marcarTodasLeidas(), 'Avisos marcados como leídos')
   }
 
+  function markRead(id: string) {
+    void ejecutar(() => datos.marcarLeida(id), 'Aviso marcado como leído')
+  }
+
   /** Cambia código, nombre y descripción del curso abierto y refresca la lista. */
   function editarCursoAbierto(cambios: { codigo: string; nombre: string; descripcion: string }) {
     if (!selectedCourse || role !== 'teacher') return
@@ -280,7 +284,7 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
         {section === 'dashboard' && <Dashboard tenant={tenantId} role={role} userName={userName} courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} assignments={tenantAssignments} notices={tenantNotices} submissions={datos.submissions} studentId={studentId} onCourse={openCourse} onAssignment={openAssignment} onNavigate={navigate} />}
         {section === 'courses' && <CoursesView courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} role={role} onCourse={openCourse} onNotify={setToast} onReload={datos.recargar} />}
         {section === 'calendar' && <CalendarView assignments={tenantAssignments} courseList={tenantCourses} onAssignment={openAssignment} />}
-        {section === 'inbox' && <InboxView notices={tenantNotices} onMarkAllRead={markAllRead} />}
+        {section === 'inbox' && <InboxView notices={tenantNotices} onMarkAllRead={markAllRead} onRead={markRead} />}
         {section === 'grades' && <GradesView role={role} assignments={tenantAssignments} submissions={datos.submissions} courseList={tenantCourses} studentId={studentId} onAssignment={openAssignment} />}
         {section === 'riesgo' && <Riesgo />}
       </main>}
@@ -580,8 +584,8 @@ function CalendarView({ assignments, courseList, onAssignment }: { assignments: 
   return <><PageHeading eyebrow="PLANIFICACIÓN" title="Calendario" subtitle="Fechas importantes de tus cursos." /><div className="content-card calendar-list"><div className="calendar-list-title"><CalendarDays size={21} /><h2>Próximas entregas</h2></div>{ordered.length ? ordered.map((assignment) => <button className="calendar-item" key={assignment.id} onClick={() => onAssignment(assignment)}><span className="date-tile"><b>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { day: '2-digit', timeZone: 'America/Lima' })}</b><small>{new Date(assignment.dueAt).toLocaleDateString('es-PE', { month: 'short', timeZone: 'America/Lima' })}</small></span><span><strong>{assignment.title}</strong><small>{courseList.find((course) => course.id === assignment.courseId)?.name ?? assignment.courseId} · {formatDateLong(assignment.dueAt)}</small></span><ChevronRight size={17} /></button>) : <EmptyState icon={CalendarDays} title="Sin eventos" detail="Las fechas de tus tareas aparecerán aquí." />}</div></>
 }
 
-function InboxView({ notices, onMarkAllRead }: { notices: Notice[]; onMarkAllRead: () => void }) {
-  return <><PageHeading eyebrow="COMUNICACIÓN" title="Bandeja" subtitle="Avisos de tus cursos." action={<Button secondary onClick={onMarkAllRead}><Check size={17} /> Marcar como leídos</Button>} /><div className="content-card inbox-list">{notices.length ? notices.map((notice) => <div className={`inbox-item ${notice.read ? '' : 'unread'}`} key={notice.id}><span className="inbox-icon"><Bell size={18} /></span><div><strong>{notice.title}</strong><p>{notice.body}</p><small>{formatDateLong(notice.date)}</small></div>{!notice.read && <span className="unread-dot" />}</div>) : <EmptyState icon={Inbox} title="Bandeja vacía" detail="Los avisos de tus cursos aparecerán aquí." />}</div></>
+function InboxView({ notices, onMarkAllRead, onRead }: { notices: Notice[]; onMarkAllRead: () => void; onRead: (id: string) => void }) {
+  return <><PageHeading eyebrow="COMUNICACIÓN" title="Bandeja" subtitle="Avisos de tus cursos." action={<Button secondary onClick={onMarkAllRead}><Check size={17} /> Marcar como leídos</Button>} /><div className="content-card inbox-list">{notices.length ? notices.map((notice) => <div className={`inbox-item ${notice.read ? '' : 'unread'}`} key={notice.id} role={notice.read ? undefined : 'button'} tabIndex={notice.read ? undefined : 0} onClick={notice.read ? undefined : () => onRead(notice.id)} onKeyDown={notice.read ? undefined : (event) => { if (event.key === 'Enter') onRead(notice.id) }}><span className="inbox-icon"><Bell size={18} /></span><div><strong>{notice.title}</strong><p>{notice.body}</p><small>{formatDateLong(notice.date)}</small></div>{!notice.read && <span className="unread-dot" />}</div>) : <EmptyState icon={Inbox} title="Bandeja vacía" detail="Los avisos de tus cursos aparecerán aquí." />}</div></>
 }
 
 function GradesView({ role, assignments, submissions, courseList, studentId, onAssignment }: { role: Role; assignments: Assignment[]; submissions: Submission[]; courseList: Course[]; studentId: string; onAssignment: (assignment: Assignment) => void }) {

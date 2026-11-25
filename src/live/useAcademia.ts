@@ -26,6 +26,7 @@ export interface Academia {
   entregar: (cursoId: string, tareaId: string, texto: string, archivo?: string) => Promise<void>
   calificar: (cursoId: string, tareaId: string, alumnoId: string, nota: number, retro: string) => Promise<void>
   marcarTodasLeidas: () => Promise<void>
+  marcarLeida: (usuarioTs: string) => Promise<void>
 }
 
 const mensaje = (e: unknown) =>
@@ -169,12 +170,17 @@ export function useAcademia(sesion: Sesion): Academia {
     recargar()
   }, [recargar])
 
+  const marcarLeida = useCallback(async (usuarioTs: string) => {
+    await api.marcarLeida(usuarioTs)
+    recargar()
+  }, [recargar])
+
   const courses = useMemo(() => cursosRaw.map((c) => c.curso), [cursosRaw])
   const assignments = useMemo(() => cursosRaw.flatMap((c) => c.tareas), [cursosRaw])
   const submissions = useMemo(() => cursosRaw.flatMap((c) => c.entregas), [cursosRaw])
 
   return {
     cargando, error, courses, assignments, submissions, notices, modulesByCourse, noLeidas,
-    recargar, cargarModulos, crearTarea, entregar, calificar, marcarTodasLeidas,
+    recargar, cargarModulos, crearTarea, entregar, calificar, marcarTodasLeidas, marcarLeida,
   }
 }
