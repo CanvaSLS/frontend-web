@@ -30,6 +30,7 @@ export function aCourse(c: Curso, indice: number, estudiantes = 0, avance = 0): 
     progress: avance,
     students: estudiantes,
     term: c.ciclo ?? '',
+    description: c.descripcion ?? '',
   }
 }
 

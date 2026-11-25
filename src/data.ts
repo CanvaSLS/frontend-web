@@ -15,6 +15,8 @@ export interface Course {
   tenantId: TenantId
   code: string
   name: string
+  /** Descripción que devuelve el backend; se edita desde el modal del curso. */
+  description?: string
   professor: string
   color: string
   progress: number

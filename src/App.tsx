@@ -2,8 +2,8 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Bell, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight,
   CircleHelp, ClipboardList, CloudUpload, FileText, GraduationCap, Home,
-  Inbox, LayoutDashboard, LogOut, Menu, MoreHorizontal, Plus, RefreshCw, Search, ShieldAlert,
-  TriangleAlert, Users, X,
+  Inbox, LayoutDashboard, LogOut, Menu, MoreHorizontal, Pencil, Plus, RefreshCw, Search, ShieldAlert,
+  Trash2, TriangleAlert, Users, X,
 } from 'lucide-react'
 import {
   formatDate, formatDateLong,
@@ -12,7 +12,7 @@ import {
 } from './data'
 import { Login } from './live/Login'
 import { Riesgo, TarjetaRiesgoAlumno } from './views/Riesgo'
-import { agregarMaterial, alCaducarSesion, crearCurso, descargarMaterial, guardarSesion, leerSesion, logout, matriculas, publicarModulo, subirASS3 } from './live/api'
+import { agregarMaterial, alCaducarSesion, crearCurso, descargarMaterial, eliminarCurso, guardarSesion, leerSesion, logout, matriculas, modificarCurso, publicarModulo, subirASS3 } from './live/api'
 import { nombreTenant } from './live/config'
 import { aRole } from './live/adapt'
 import { useAcademia } from './live/useAcademia'
@@ -46,10 +46,11 @@ function EmptyState({ icon: IconComponent, title, detail }: { icon: Icon; title:
   return <div className="empty-state"><IconComponent size={30} strokeWidth={1.5} /><strong>{title}</strong><span>{detail}</span></div>
 }
 
-function Button({ children, onClick, secondary = false, type = 'button', disabled = false }: {
-  children: ReactNode; onClick?: () => void; secondary?: boolean; type?: 'button' | 'submit'; disabled?: boolean
+function Button({ children, onClick, secondary = false, danger = false, type = 'button', disabled = false }: {
+  children: ReactNode; onClick?: () => void; secondary?: boolean; danger?: boolean; type?: 'button' | 'submit'; disabled?: boolean
 }) {
-  return <button className={secondary ? 'button secondary' : 'button primary'} type={type} onClick={onClick} disabled={disabled}>{children}</button>
+  const clase = danger ? 'button danger' : secondary ? 'button secondary' : 'button primary'
+  return <button className={clase} type={type} onClick={onClick} disabled={disabled}>{children}</button>
 }
 
 /**
@@ -93,6 +94,8 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null)
   const [selectedModuleItemId, setSelectedModuleItemId] = useState<string | null>(null)
   const [showCreateAssignment, setShowCreateAssignment] = useState(false)
+  const [showEditCourse, setShowEditCourse] = useState(false)
+  const [showDeleteCourse, setShowDeleteCourse] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState('')
@@ -187,6 +190,29 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
     void ejecutar(() => datos.marcarTodasLeidas(), 'Avisos marcados como leídos')
   }
 
+  /** Cambia código, nombre y descripción del curso abierto y refresca la lista. */
+  function editarCursoAbierto(cambios: { codigo: string; nombre: string; descripcion: string }) {
+    if (!selectedCourse || role !== 'teacher') return
+    const curso = selectedCourse
+    setShowEditCourse(false)
+    void ejecutar(async () => {
+      await modificarCurso(curso.id, cambios)
+      datos.recargar()
+    }, `Curso ${curso.code} actualizado`)
+  }
+
+  /** Borra el curso abierto (y sus módulos y matrículas) y vuelve al panel. */
+  function borrarCursoAbierto() {
+    if (!selectedCourse || role !== 'teacher') return
+    const curso = selectedCourse
+    setShowDeleteCourse(false)
+    void ejecutar(async () => {
+      await eliminarCurso(curso.id)
+      datos.recargar()
+      navigate('dashboard')
+    }, `Curso ${curso.code} eliminado`)
+  }
+
   const breadcrumbs = selectedCourse
     ? selectedAssignment ? [selectedCourse.name, 'Tareas', selectedAssignment.title]
       : selectedModuleItemId ? [selectedCourse.name, 'Módulos', 'Contenido']
@@ -239,7 +265,10 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
       {selectedCourse ? <div className="course-layout">
         <aside className="course-sidebar">
           <button className="back-link" onClick={() => navigate('dashboard')}><ChevronLeft size={16} /> Volver al panel</button>
-          <div className="course-sidebar-heading"><span>{selectedCourse.code}</span><strong>{selectedCourse.name}</strong></div>
+          <div className="course-sidebar-heading"><span>{selectedCourse.code}</span><strong>{selectedCourse.name}</strong>{role === 'teacher' && <>
+            <Button secondary onClick={() => setShowEditCourse(true)}><Pencil size={16} /> Editar curso</Button>
+            <Button danger onClick={() => setShowDeleteCourse(true)}><Trash2 size={16} /> Eliminar curso</Button>
+          </>}</div>
           <nav aria-label="Navegación del curso">{courseTabs.map(({ id, label, icon: IconComponent }) => <button key={id} className={courseTab === id ? 'selected' : ''} onClick={() => { setCourseTab(id); setSelectedAssignmentId(null); setSelectedModuleItemId(null) }}><IconComponent size={17} />{label}</button>)}</nav>
         </aside>
         <main className="main-content course-content">
@@ -258,6 +287,8 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
     </div>
 
     {showCreateAssignment && selectedCourse && <CreateAssignmentModal course={selectedCourse} onClose={() => setShowCreateAssignment(false)} onCreate={addAssignment} />}
+    {showEditCourse && selectedCourse && <EditCourseModal course={selectedCourse} onClose={() => setShowEditCourse(false)} onSave={editarCursoAbierto} />}
+    {showDeleteCourse && selectedCourse && <DeleteCourseModal course={selectedCourse} onClose={() => setShowDeleteCourse(false)} onConfirm={borrarCursoAbierto} />}
     {toast && <div className="toast"><Check size={17} />{toast}</div>}
     {mobileMenuOpen && <button className="mobile-scrim" aria-label="Cerrar menú" onClick={() => setMobileMenuOpen(false)} />}
   </div>
@@ -331,6 +362,38 @@ function CreateCourseModal({ onClose, onNotify, onReload }: {
   }
 
   return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-curso" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><span className="eyebrow">NUEVO</span><h2 id="modal-curso">Nuevo curso</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={21} /></button></div><form onSubmit={submit}><label className="field-label" htmlFor="curso-codigo">Código</label><input id="curso-codigo" required maxLength={20} value={codigo} onChange={(event) => setCodigo(event.target.value)} placeholder="Ej. CC301" /><label className="field-label" htmlFor="curso-nombre">Nombre</label><input id="curso-nombre" required maxLength={160} value={nombre} onChange={(event) => setNombre(event.target.value)} placeholder="Ej. Cloud Computing" /><label className="field-label" htmlFor="curso-desc">Descripción</label><textarea id="curso-desc" rows={3} value={descripcion} onChange={(event) => setDescripcion(event.target.value)} placeholder="Breve descripción del curso..." /><div className="modal-actions"><Button secondary onClick={onClose}>Cancelar</Button><Button type="submit">Crear curso</Button></div></form></div></div>
+}
+
+function EditCourseModal({ course, onClose, onSave }: {
+  course: Course; onClose: () => void
+  onSave: (cambios: { codigo: string; nombre: string; descripcion: string }) => void
+}) {
+  const [codigo, setCodigo] = useState(course.code)
+  const [nombre, setNombre] = useState(course.name)
+  const [descripcion, setDescripcion] = useState(course.description ?? '')
+
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!codigo.trim() || !nombre.trim()) return
+    onSave({ codigo: codigo.trim(), nombre: nombre.trim(), descripcion: descripcion.trim() })
+  }
+
+  return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-editar-curso" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><span className="eyebrow">EDITAR</span><h2 id="modal-editar-curso">Editar curso</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={21} /></button></div><form onSubmit={submit}><label className="field-label" htmlFor="editar-codigo">Código</label><input id="editar-codigo" required maxLength={20} value={codigo} onChange={(event) => setCodigo(event.target.value)} placeholder="Ej. CC301" /><label className="field-label" htmlFor="editar-nombre">Nombre</label><input id="editar-nombre" required maxLength={160} value={nombre} onChange={(event) => setNombre(event.target.value)} placeholder="Ej. Cloud Computing" /><label className="field-label" htmlFor="editar-desc">Descripción</label><textarea id="editar-desc" rows={3} value={descripcion} onChange={(event) => setDescripcion(event.target.value)} placeholder="Breve descripción del curso..." /><div className="modal-actions"><Button secondary onClick={onClose}>Cancelar</Button><Button type="submit">Guardar cambios</Button></div></form></div></div>
+}
+
+function DeleteCourseModal({ course, onClose, onConfirm }: {
+  course: Course; onClose: () => void; onConfirm: () => void
+}) {
+  const [confirmacion, setConfirmacion] = useState('')
+  const habilitado = confirmacion.trim() === course.code
+
+  function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!habilitado) return
+    onConfirm()
+  }
+
+  return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-borrar-curso" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><span className="eyebrow">ELIMINAR</span><h2 id="modal-borrar-curso">Eliminar curso</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={21} /></button></div><form onSubmit={submit}><p>Se eliminará el curso <strong>{course.name}</strong>. También se borran sus módulos y matrículas, y la acción no se puede deshacer.</p><label className="field-label" htmlFor="borrar-codigo">Escribe <strong>{course.code}</strong> para confirmar</label><input id="borrar-codigo" value={confirmacion} onChange={(event) => setConfirmacion(event.target.value)} placeholder={course.code} autoComplete="off" /><div className="modal-actions"><Button secondary onClick={onClose}>Cancelar</Button><Button danger type="submit" disabled={!habilitado}><Trash2 size={16} /> Eliminar curso</Button></div></form></div></div>
 }
 
 function CourseContent({ course, tab, role, assignments, submissions, courseModules, studentId, onOpenAssignment, onOpenModuleItem, onCreateAssignment, onNotify, onReloadModulos }: {

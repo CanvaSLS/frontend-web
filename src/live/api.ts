@@ -109,7 +109,7 @@ export const matriculas = (curso: string, limit = 50, cursor?: string) =>
   })
 export const crearCurso = (c: { codigo: string; nombre: string; descripcion?: string }) =>
   llamar<Curso>('cursos', 'cursos', { metodo: 'POST', cuerpo: c })
-export const modificarCurso = (id: string, c: Partial<Pick<Curso, 'nombre' | 'descripcion' | 'color'>>) =>
+export const modificarCurso = (id: string, c: Partial<Pick<Curso, 'codigo' | 'nombre' | 'descripcion' | 'color'>>) =>
   llamar<Curso>('cursos', `cursos/${id}`, { metodo: 'PUT', cuerpo: c })
 export const eliminarCurso = (id: string) =>
   llamar<{ eliminado: string }>('cursos', `cursos/${id}`, { metodo: 'DELETE' })
