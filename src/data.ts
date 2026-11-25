@@ -7,7 +7,7 @@
 export type Role = 'student' | 'teacher'
 /** Id de tenant tal como lo devuelve el token: UTEC, NORTE, ANDINO. */
 export type TenantId = string
-export type Section = 'dashboard' | 'courses' | 'calendar' | 'inbox' | 'grades' | 'practice' | 'mastery' | 'diary'
+export type Section = 'dashboard' | 'courses' | 'calendar' | 'inbox' | 'grades' | 'riesgo'
 export type CourseTab = 'home' | 'modules' | 'assignments' | 'grades' | 'people'
 
 export interface Course {

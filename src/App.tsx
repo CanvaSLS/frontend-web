@@ -3,14 +3,13 @@ import {
   Bell, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight,
   CircleHelp, ClipboardList, CloudUpload, FileText, GraduationCap, Home,
   Inbox, LayoutDashboard, LogOut, Menu, MoreHorizontal, Plus, RefreshCw, Search,
-  TriangleAlert, Users, X, Layers, BarChart3, Edit3,
+  TriangleAlert, Users, X,
 } from 'lucide-react'
 import {
   formatDate, formatDateLong,
   type Assignment, type Course, type CourseModule, type CourseTab, type Notice,
   type Role, type Section, type Submission,
 } from './data'
-import { DiaryView, MasteryView, PracticeView, WeekPulse } from './extras'
 import { Login } from './live/Login'
 import { alCaducarSesion, guardarSesion, leerSesion } from './live/api'
 import { nombreTenant } from './live/config'
@@ -27,9 +26,6 @@ const navigation: NavigationItem[] = [
   { id: 'calendar', label: 'Calendario', icon: CalendarDays },
   { id: 'inbox', label: 'Bandeja', icon: Inbox },
   { id: 'grades', label: 'Calificaciones', icon: GraduationCap },
-  { id: 'practice', label: 'Práctica', icon: Layers, role: 'student' },
-  { id: 'mastery', label: 'Dominio', icon: BarChart3 },
-  { id: 'diary', label: 'Diario', icon: Edit3, role: 'student' },
 ]
 
 const courseTabs: { id: CourseTab; label: string; icon: Icon }[] = [
@@ -247,9 +243,6 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
         {section === 'courses' && <CoursesView courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} onCourse={openCourse} />}
         {section === 'calendar' && <CalendarView assignments={tenantAssignments} courseList={tenantCourses} onAssignment={openAssignment} />}
         {section === 'inbox' && <InboxView notices={tenantNotices} onMarkAllRead={markAllRead} />}
-        {section === 'practice' && <PracticeView onDone={() => navigate('mastery')} />}
-        {section === 'mastery' && <MasteryView role={role} />}
-        {section === 'diary' && <DiaryView />}
         {section === 'grades' && <GradesView role={role} assignments={tenantAssignments} submissions={datos.submissions} courseList={tenantCourses} studentId={studentId} onAssignment={openAssignment} />}
       </main>}
     </div>
@@ -281,7 +274,6 @@ function Dashboard({ tenant, role, userName, courseList, assignments, notices, s
     <PageHeading eyebrow={`ESPACIO ACADÉMICO · ${tenant}`} title={`Hola, ${userName.split(' ')[0]} 👋`} subtitle={role === 'student' ? 'Aquí tienes un resumen de tus cursos y próximas actividades.' : 'Administra tus cursos y revisa la actividad de tus estudiantes.'} />
     <div className="dashboard-grid">
       <div className="dashboard-main">
-        {role === 'student' && <WeekPulse pending={pending.length} onPractice={() => onNavigate('practice')} />}
         <section className="summary-grid">
           <div className="summary-card"><IconBadge icon={BookOpen} tone="blue" /><div><strong>{courseList.length}</strong><span>Cursos activos</span></div></div>
           <div className="summary-card"><IconBadge icon={ClipboardList} tone="orange" /><div><strong>{role === 'student' ? pending.length : assignments.length}</strong><span>{role === 'student' ? 'Tareas pendientes' : 'Tareas publicadas'}</span></div></div>
