@@ -51,6 +51,30 @@ export const observarLlamadas = (fn: ((t: Traza) => void) | null): void => { obs
 let alExpirar: (() => void) | null = null
 export const alCaducarSesion = (fn: (() => void) | null): void => { alExpirar = fn }
 
+/**
+ * Límite global de peticiones HTTP simultáneas en toda la aplicación.
+ * Evita superar el tope de concurrencia de AWS Lambda (10) en AWS Academy,
+ * considerando que cada petición protegida invoca Authorizer + handler.
+ */
+const MAX_CONCURRENTES = 2
+let enVuelo = 0
+const cola: (() => void)[] = []
+
+function conLimite<T>(fn: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const ejecutar = () => {
+      enVuelo++
+      fn().then(resolve, reject).finally(() => {
+        enVuelo--
+        const siguiente = cola.shift()
+        if (siguiente) siguiente()
+      })
+    }
+    if (enVuelo < MAX_CONCURRENTES) ejecutar()
+    else cola.push(ejecutar)
+  })
+}
+
 export async function llamar<T>(servicio: Servicio, ruta: string, o: Opciones = {}): Promise<T> {
   const base = API[servicio]
   if (!base) throw new ApiError(0, 'SERVICIO_SIN_URL', `Falta la variable VITE_API_${servicio.toUpperCase()}`)
@@ -58,37 +82,39 @@ export async function llamar<T>(servicio: Servicio, ruta: string, o: Opciones = 
   for (const [k, v] of Object.entries(o.query ?? {})) if (v !== undefined && v !== '') qs.set(k, String(v))
   const url = `${base.replace(/\/$/, '')}/${ruta}${qs.size ? `?${qs}` : ''}`
   const token = o.token ?? leerSesion()?.token
-  const t0 = performance.now()
-  let r: Response
-  try {
-    r = await fetch(url, {
-      method: o.metodo ?? 'GET',
-      headers: {
-        ...(o.cuerpo !== undefined ? { 'Content-Type': 'application/json' } : {}),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: o.cuerpo !== undefined ? JSON.stringify(o.cuerpo) : undefined,
+  return conLimite(async () => {
+    const t0 = performance.now()
+    let r: Response
+    try {
+      r = await fetch(url, {
+        method: o.metodo ?? 'GET',
+        headers: {
+          ...(o.cuerpo !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: o.cuerpo !== undefined ? JSON.stringify(o.cuerpo) : undefined,
+      })
+    } catch {
+      throw new ApiError(0, 'RED', 'No se pudo conectar con la API (¿CORS, URL, o credenciales de AWS vencidas?)')
+    }
+    observador?.({
+      metodo: o.metodo ?? 'GET', ruta: `/${ruta}`, status: r.status,
+      ms: Math.round(performance.now() - t0), cuando: new Date().toISOString(),
     })
-  } catch {
-    throw new ApiError(0, 'RED', 'No se pudo conectar con la API (¿CORS, URL, o credenciales de AWS vencidas?)')
-  }
-  observador?.({
-    metodo: o.metodo ?? 'GET', ruta: `/${ruta}`, status: r.status,
-    ms: Math.round(performance.now() - t0), cuando: new Date().toISOString(),
+    const texto = await r.text()
+    let data: unknown = null
+    try { data = texto ? JSON.parse(texto) : null } catch { /* cuerpo no JSON */ }
+    if (!r.ok) {
+      const d = (data ?? {}) as { error?: string; mensaje?: string; message?: string }
+      if (r.status === 401 && token) { guardarSesion(null); alExpirar?.() }
+      throw new ApiError(
+        r.status,
+        d.error ?? (r.status === 401 ? 'NO_AUTENTICADO' : 'ERROR'),
+        d.mensaje ?? d.message ?? `HTTP ${r.status}`,
+      )
+    }
+    return data as T
   })
-  const texto = await r.text()
-  let data: unknown = null
-  try { data = texto ? JSON.parse(texto) : null } catch { /* cuerpo no JSON */ }
-  if (!r.ok) {
-    const d = (data ?? {}) as { error?: string; mensaje?: string; message?: string }
-    if (r.status === 401 && token) { guardarSesion(null); alExpirar?.() }
-    throw new ApiError(
-      r.status,
-      d.error ?? (r.status === 401 ? 'NO_AUTENTICADO' : 'ERROR'),
-      d.mensaje ?? d.message ?? `HTTP ${r.status}`,
-    )
-  }
-  return data as T
 }
 
 // ------------------------------------------------------------------ ms-auth
