@@ -10,7 +10,7 @@ import {
   type Assignment, type Course, type CourseModule, type CourseTab, type Notice,
   type Role, type Section, type Submission,
 } from './data'
-import { DiaryView, MasteryView, PracticeView, ThemePicker, WeekPulse } from './extras'
+import { DiaryView, MasteryView, PracticeView, WeekPulse } from './extras'
 import { Login } from './live/Login'
 import { alCaducarSesion, guardarSesion, leerSesion } from './live/api'
 import { nombreTenant } from './live/config'
@@ -255,7 +255,6 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
     </div>
 
     {showCreateAssignment && selectedCourse && <CreateAssignmentModal course={selectedCourse} onClose={() => setShowCreateAssignment(false)} onCreate={addAssignment} />}
-    <ThemePicker />
     {toast && <div className="toast"><Check size={17} />{toast}</div>}
     {mobileMenuOpen && <button className="mobile-scrim" aria-label="Cerrar menú" onClick={() => setMobileMenuOpen(false)} />}
   </div>

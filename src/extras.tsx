@@ -147,28 +147,3 @@ export function WeekPulse({ pending, onPractice }: { pending: number; onPractice
     <div className="x-grow"><strong>{msg}</strong><small>{pending} tareas pendientes · {done ? 'mazo semanal completado' : 'mazo semanal sin abrir'}</small></div>
     {!done && <button className="button primary" onClick={onPractice}>Empezar mazo (≈ 4 min)</button>}</div>
 }
-
-/* ---------- Selector de estilos ---------- */
-const THEMES: [string, string][] = [['oceano', '🌊 Océano'], ['chicle', '🌸 Chicle'], ['lavanda', '💜 Lavanda'], ['menta', '🍃 Menta'], ['noche', '🌙 Noche'], ['upc', '🔴 UPC'], ['gatitos', '🐱 Gatitos'], ['unicornio', '🦄 Unicornio'], ['heroes', '🦸 Héroes']]
-
-export function ThemePicker() {
-  const [open, setOpen] = useState(false)
-  const [theme, setTheme] = useState(() => read('canvasls-theme', 'oceano'))
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    if (theme !== 'foto') { document.documentElement.style.removeProperty('--photo'); write('canvasls-theme', theme) }
-  }, [theme])
-  function photo(file?: File) {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => { document.documentElement.style.setProperty('--photo', `url("${String(reader.result)}")`); setTheme('foto') }
-    reader.readAsDataURL(file)
-  }
-  return <>
-    <button className="x-fab" aria-expanded={open} onClick={() => setOpen(!open)}>🎨 Cambiar estilo</button>
-    {open && <div className="x-panel" role="dialog" aria-label="Elegir estilo"><h4>Elige tu estilo</h4>
-      <div className="x-swatches">{THEMES.map(([id, name]) => <button key={id} aria-pressed={theme === id} className={theme === id ? 'on' : ''} onClick={() => setTheme(id)}>{name}</button>)}</div>
-      <label className="x-upload">📷 Usar mi propia imagen<input type="file" accept="image/*" hidden onChange={(e) => photo(e.target.files?.[0])} /></label>
-      <small className="muted">¿Quieres personajes (Hello Kitty, Garfield…)? Sube tu propia imagen como fondo.</small></div>}
-  </>
-}
