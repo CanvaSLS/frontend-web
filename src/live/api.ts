@@ -96,6 +96,8 @@ export const login = (tenant_id: string, email: string, password: string) =>
   llamar<Sesion & { expira_en: string }>('auth', 'auth/login', {
     metodo: 'POST', cuerpo: { tenant_id, email, password },
   })
+export const logout = () =>
+  llamar<unknown>('auth', 'auth/logout', { metodo: 'POST', cuerpo: {} })
 
 // ------------------------------------------------------------------ ms-cursos
 export const cursos = () => llamar<{ cursos: Curso[] }>('cursos', 'cursos').then((r) => r.cursos ?? [])

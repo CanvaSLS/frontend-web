@@ -12,7 +12,7 @@ import {
 } from './data'
 import { Login } from './live/Login'
 import { Riesgo, TarjetaRiesgoAlumno } from './views/Riesgo'
-import { alCaducarSesion, guardarSesion, leerSesion } from './live/api'
+import { alCaducarSesion, guardarSesion, leerSesion, logout } from './live/api'
 import { nombreTenant } from './live/config'
 import { aRole } from './live/adapt'
 import { useAcademia } from './live/useAcademia'
@@ -69,9 +69,9 @@ export default function App() {
     setSesion(s)
   }
 
-  function salir() {
-    guardarSesion(null)
-    setSesion(null)
+  async function salir() {
+    try { await logout() } catch { /* la sesión local se cierra igual si el servidor falla */ }
+    finally { guardarSesion(null); setSesion(null) }
   }
 
   if (!sesion) return <Login onEntrar={entrar} />
