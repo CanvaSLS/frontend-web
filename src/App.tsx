@@ -12,11 +12,11 @@ import {
 } from './data'
 import { Login } from './live/Login'
 import { Riesgo, TarjetaRiesgoAlumno } from './views/Riesgo'
-import { alCaducarSesion, guardarSesion, leerSesion, logout } from './live/api'
+import { alCaducarSesion, guardarSesion, leerSesion, logout, matriculas } from './live/api'
 import { nombreTenant } from './live/config'
 import { aRole } from './live/adapt'
 import { useAcademia } from './live/useAcademia'
-import type { Sesion } from './live/types'
+import type { Matricula, Sesion } from './live/types'
 
 type Icon = typeof Home
 type NavigationItem = { id: Section; label: string; icon: Icon; role?: Role }
@@ -304,8 +304,49 @@ function CourseContent({ course, tab, role, assignments, submissions, courseModu
   if (tab === 'modules') return <><PageHeading eyebrow={course.code} title="Módulos" subtitle="Material de aprendizaje organizado por temas." />{courseModules.length ? courseModules.map((module, index) => <div className="module-panel" key={module.id}><div className="module-header"><span className="module-number">{String(index + 1).padStart(2, '0')}</span><h2>{module.title}</h2><span className="muted">{module.items.length} elementos</span></div>{module.items.map((item) => <button className="module-item" key={item.id} onClick={() => onOpenModuleItem(item.id)}><span className={`module-item-icon ${item.type}`}><FileText size={17} /></span><span>{item.title}</span><ChevronRight size={17} /></button>)}</div>) : <EmptyState icon={BookOpen} title="Sin módulos" detail="El contenido de este curso aún está en preparación." />}</>
   if (tab === 'assignments') return <><PageHeading eyebrow={course.code} title="Tareas" subtitle={role === 'teacher' ? 'Publica y revisa las actividades del curso.' : 'Consulta las consignas y entrega tu trabajo.'} action={role === 'teacher' && <Button onClick={onCreateAssignment}><Plus size={17} /> Nueva tarea</Button>} /><div className="content-card task-list">{assignments.length ? assignments.slice().sort((a, b) => a.dueAt.localeCompare(b.dueAt)).map((assignment) => { const submission = submissions.find((item) => item.assignmentId === assignment.id && item.studentId === studentId); return <button className="task-list-row" key={assignment.id} onClick={() => onOpenAssignment(assignment)}><IconBadge icon={ClipboardList} tone="orange" /><span className="task-list-main"><strong>{assignment.title}</strong><small>Vence el {formatDateLong(assignment.dueAt)} · {assignment.points} puntos</small></span><span className={`status-pill ${submission ? 'success' : ''}`}>{role === 'teacher' ? `${submissions.filter((item) => item.assignmentId === assignment.id).length} entregas` : submission ? 'Entregada' : 'Pendiente'}</span><ChevronRight size={18} /></button> }) : <EmptyState icon={ClipboardList} title="Sin tareas" detail="Las tareas del curso aparecerán aquí." />}</div></>
   if (tab === 'grades') return <><PageHeading eyebrow={course.code} title="Calificaciones" subtitle={role === 'teacher' ? 'Revisa las calificaciones de este curso.' : 'Consulta tus resultados.'} /><GradeTable assignments={assignments} submissions={submissions} courseList={[course]} role={role} studentId={studentId} onAssignment={onOpenAssignment} /></>
-  const alumnos = Array.from(new Map(submissions.map((s) => [s.studentId, s.studentName])).entries())
-  return <><PageHeading eyebrow={course.code} title="Personas" subtitle="Participantes del curso." /><div className="content-card people-card"><IconBadge icon={Users} tone="purple" /><div><h2>{alumnos.length} estudiante{alumnos.length === 1 ? '' : 's'} con actividad</h2><p>Profesor responsable: {course.professor}</p>{alumnos.length ? <div className="people-chips">{alumnos.map(([id, nombre]) => <span className="file-chip" key={id}>{nombre}</span>)}</div> : <p className="muted">Aquí aparecen los alumnos que ya entregaron alguna tarea de este curso.</p>}</div></div></>
+  return <PeopleTab course={course} role={role} submissions={submissions} />
+}
+
+/**
+ * Pestaña "Personas". El docente ve las matrículas reales de ms-cursos (paginadas
+ * por cursor); el alumno ve los compañeros que ya entregaron alguna tarea.
+ */
+function PeopleTab({ course, role, submissions }: { course: Course; role: Role; submissions: Submission[] }) {
+  const [lista, setLista] = useState<Matricula[]>([])
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [cargando, setCargando] = useState(false)
+  const [error, setError] = useState('')
+  const [cargandoMas, setCargandoMas] = useState(false)
+
+  useEffect(() => {
+    if (role !== 'teacher') return
+    let vigente = true
+    setCargando(true)
+    setError('')
+    setLista([])
+    setCursor(null)
+    matriculas(course.id, 50)
+      .then((r) => { if (vigente) { setLista(r.matriculas); setCursor(r.cursor) } })
+      .catch((e) => { if (vigente) setError(e instanceof Error ? e.message : 'No se pudieron cargar las matrículas') })
+      .finally(() => { if (vigente) setCargando(false) })
+    return () => { vigente = false }
+  }, [course.id, role])
+
+  function cargarMas() {
+    if (!cursor) return
+    setCargandoMas(true)
+    matriculas(course.id, 50, cursor)
+      .then((r) => { setLista((prev) => [...prev, ...r.matriculas]); setCursor(r.cursor) })
+      .catch((e) => setError(e instanceof Error ? e.message : 'No se pudieron cargar las matrículas'))
+      .finally(() => setCargandoMas(false))
+  }
+
+  if (role !== 'teacher') {
+    const alumnos = Array.from(new Map(submissions.map((s) => [s.studentId, s.studentName])).entries())
+    return <><PageHeading eyebrow={course.code} title="Personas" subtitle="Participantes del curso." /><div className="content-card people-card"><IconBadge icon={Users} tone="purple" /><div><h2>{alumnos.length} estudiante{alumnos.length === 1 ? '' : 's'} con actividad</h2><p>Profesor responsable: {course.professor}</p>{alumnos.length ? <div className="people-chips">{alumnos.map(([id, nombre]) => <span className="file-chip" key={id}>{nombre}</span>)}</div> : <p className="muted">Aquí aparecen los alumnos que ya entregaron alguna tarea de este curso.</p>}</div></div></>
+  }
+
+  return <><PageHeading eyebrow={course.code} title="Personas" subtitle="Alumnos matriculados en el curso." /><div className="content-card people-card"><IconBadge icon={Users} tone="purple" /><div><h2>{lista.length} estudiante{lista.length === 1 ? '' : 's'} matriculado{lista.length === 1 ? '' : 's'}</h2><p>Profesor responsable: {course.professor}</p>{cargando && <div className="load-bar" role="status">Cargando matrículas...</div>}{error && <div className="load-bar error" role="alert"><TriangleAlert size={17} /> {error}</div>}{!cargando && !error && (lista.length ? <div className="people-chips">{lista.map((m) => <span className="file-chip" key={m.alumno_id}>{m.alumno_nombre ?? m.alumno_id} · {m.alumno_id} · {m.estado ?? 'ACTIVA'}</span>)}</div> : <p className="muted">Este curso aún no tiene alumnos matriculados.</p>)}{cursor && <button className="button secondary" style={{ marginTop: 12 }} onClick={cargarMas} disabled={cargandoMas}>{cargandoMas ? 'Cargando...' : 'Cargar más'}</button>}</div></div></>
 }
 
 function ModuleDetail({ itemId, course, courseModules, onBack }: { itemId: string; course: Course; courseModules: CourseModule[]; onBack: () => void }) {

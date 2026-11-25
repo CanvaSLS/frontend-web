@@ -103,8 +103,10 @@ export const logout = () =>
 export const cursos = () => llamar<{ cursos: Curso[] }>('cursos', 'cursos').then((r) => r.cursos ?? [])
 export const modulos = (curso: string) =>
   llamar<{ modulos: Modulo[] }>('cursos', `cursos/${curso}/modulos`).then((r) => r.modulos ?? [])
-export const matriculas = (curso: string) =>
-  llamar<{ matriculas: Matricula[] }>('cursos', `cursos/${curso}/matriculas`).then((r) => r.matriculas ?? [])
+export const matriculas = (curso: string, limit = 50, cursor?: string) =>
+  llamar<{ matriculas: Matricula[]; cursor: string | null }>('cursos', `cursos/${curso}/matriculas`, {
+    query: { limit, cursor },
+  })
 export const crearCurso = (c: { codigo: string; nombre: string; descripcion?: string }) =>
   llamar<Curso>('cursos', 'cursos', { metodo: 'POST', cuerpo: c })
 export const modificarCurso = (id: string, c: Partial<Pick<Curso, 'nombre' | 'descripcion' | 'color'>>) =>
