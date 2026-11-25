@@ -12,7 +12,7 @@ import {
 } from './data'
 import { Login } from './live/Login'
 import { Riesgo, TarjetaRiesgoAlumno } from './views/Riesgo'
-import { agregarMaterial, alCaducarSesion, descargarMaterial, guardarSesion, leerSesion, logout, matriculas, publicarModulo, subirASS3 } from './live/api'
+import { agregarMaterial, alCaducarSesion, crearCurso, descargarMaterial, guardarSesion, leerSesion, logout, matriculas, publicarModulo, subirASS3 } from './live/api'
 import { nombreTenant } from './live/config'
 import { aRole } from './live/adapt'
 import { useAcademia } from './live/useAcademia'
@@ -249,7 +249,7 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
         </main>
       </div> : <main className="main-content root-content">
         {section === 'dashboard' && <Dashboard tenant={tenantId} role={role} userName={userName} courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} assignments={tenantAssignments} notices={tenantNotices} submissions={datos.submissions} studentId={studentId} onCourse={openCourse} onAssignment={openAssignment} onNavigate={navigate} />}
-        {section === 'courses' && <CoursesView courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} onCourse={openCourse} />}
+        {section === 'courses' && <CoursesView courseList={tenantCourses.filter((course) => `${course.name} ${course.code}`.toLowerCase().includes(search.toLowerCase()))} role={role} onCourse={openCourse} onNotify={setToast} onReload={datos.recargar} />}
         {section === 'calendar' && <CalendarView assignments={tenantAssignments} courseList={tenantCourses} onAssignment={openAssignment} />}
         {section === 'inbox' && <InboxView notices={tenantNotices} onMarkAllRead={markAllRead} />}
         {section === 'grades' && <GradesView role={role} assignments={tenantAssignments} submissions={datos.submissions} courseList={tenantCourses} studentId={studentId} onAssignment={openAssignment} />}
@@ -298,8 +298,39 @@ function Dashboard({ tenant, role, userName, courseList, assignments, notices, s
   </>
 }
 
-function CoursesView({ courseList, onCourse }: { courseList: Course[]; onCourse: (id: string) => void }) {
-  return <><PageHeading eyebrow="APRENDIZAJE" title="Mis cursos" subtitle="Explora los cursos de tu institución." /><div className="course-grid all-courses">{courseList.map((course) => <CourseCard key={course.id} course={course} onClick={() => onCourse(course.id)} />)}{courseList.length === 0 && <EmptyState icon={BookOpen} title="Sin cursos" detail="No hay cursos que coincidan con tu búsqueda." />}</div></>
+function CoursesView({ courseList, role, onCourse, onNotify, onReload }: {
+  courseList: Course[]; role: Role; onCourse: (id: string) => void
+  onNotify: (mensaje: string) => void; onReload: () => void
+}) {
+  const [showCreate, setShowCreate] = useState(false)
+  return <>
+    <PageHeading eyebrow="APRENDIZAJE" title="Mis cursos" subtitle="Explora los cursos de tu institución." action={role === 'teacher' && <Button onClick={() => setShowCreate(true)}><Plus size={17} /> Nuevo curso</Button>} />
+    <div className="course-grid all-courses">{courseList.map((course) => <CourseCard key={course.id} course={course} onClick={() => onCourse(course.id)} />)}{courseList.length === 0 && <EmptyState icon={BookOpen} title="Sin cursos" detail="No hay cursos que coincidan con tu búsqueda." />}</div>
+    {showCreate && <CreateCourseModal onClose={() => setShowCreate(false)} onNotify={onNotify} onReload={onReload} />}
+  </>
+}
+
+function CreateCourseModal({ onClose, onNotify, onReload }: {
+  onClose: () => void; onNotify: (mensaje: string) => void; onReload: () => void
+}) {
+  const [codigo, setCodigo] = useState('')
+  const [nombre, setNombre] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!codigo.trim() || !nombre.trim()) return
+    try {
+      await crearCurso({ codigo: codigo.trim(), nombre: nombre.trim(), descripcion: descripcion.trim() || undefined })
+      onClose()
+      onNotify(`Curso ${codigo.trim()} creado`)
+      onReload()
+    } catch (e) {
+      onNotify(e instanceof Error ? e.message : 'No se pudo crear el curso')
+    }
+  }
+
+  return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-curso" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><span className="eyebrow">NUEVO</span><h2 id="modal-curso">Nuevo curso</h2></div><button className="icon-button" onClick={onClose} aria-label="Cerrar"><X size={21} /></button></div><form onSubmit={submit}><label className="field-label" htmlFor="curso-codigo">Código</label><input id="curso-codigo" required maxLength={20} value={codigo} onChange={(event) => setCodigo(event.target.value)} placeholder="Ej. CC301" /><label className="field-label" htmlFor="curso-nombre">Nombre</label><input id="curso-nombre" required maxLength={160} value={nombre} onChange={(event) => setNombre(event.target.value)} placeholder="Ej. Cloud Computing" /><label className="field-label" htmlFor="curso-desc">Descripción</label><textarea id="curso-desc" rows={3} value={descripcion} onChange={(event) => setDescripcion(event.target.value)} placeholder="Breve descripción del curso..." /><div className="modal-actions"><Button secondary onClick={onClose}>Cancelar</Button><Button type="submit">Crear curso</Button></div></form></div></div>
 }
 
 function CourseContent({ course, tab, role, assignments, submissions, courseModules, studentId, onOpenAssignment, onOpenModuleItem, onCreateAssignment, onNotify, onReloadModulos }: {
