@@ -1,6 +1,6 @@
 import { API } from './config'
 import type {
-  Curso, Entrega, EventoTraza, Indicador, Matricula, Modulo, Notificacion, Resumen, Sesion, Tarea,
+  Curso, Entrega, EventoTraza, Indicador, Matricula, Modulo, Notificacion, Quiz, RespuestaQuiz, ResultadoQuiz, Resumen, Sesion, Tarea,
 } from './types'
 
 const CLAVE = 'sp_sesion'
@@ -206,3 +206,11 @@ export const marcarLeida = (usuarioTs: string) =>
 export const trazaEventos = (limit = 15) =>
   llamar<{ eventos: EventoTraza[] }>('notif', 'notificaciones/traza', { query: { limit } })
     .then((r) => r.eventos ?? [])
+
+// ------------------------------------------------------------------ ms-practica
+export const obtenerQuiz = (cursoId: string) =>
+  llamar<Quiz>('practica', 'practica/quiz', { query: { curso_id: cursoId } })
+export const completarQuiz = (cursoId: string, respuestas: RespuestaQuiz[]) =>
+  llamar<ResultadoQuiz>('practica', 'practica/quiz/completar', {
+    metodo: 'POST', cuerpo: { curso_id: cursoId, respuestas },
+  })

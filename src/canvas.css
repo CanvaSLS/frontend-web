@@ -179,6 +179,9 @@
 }
 :root[data-theme="oceano"] .course-hero { border-radius: 4px; }
 :root[data-theme="oceano"] .module-header { background: #f7f9fa; }
+:root[data-theme="oceano"] .quiz-option { border-radius: 4px; }
+:root[data-theme="oceano"] .quiz-option-letter { border-radius: 3px; }
+:root[data-theme="oceano"] .quiz-toolbar-field select { border-radius: 4px; }
 :root[data-theme="oceano"] .x-fab,
 :root[data-theme="oceano"] .x-panel,
 :root[data-theme="oceano"] .login-card { border-radius: 4px; }

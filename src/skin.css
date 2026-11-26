@@ -66,4 +66,31 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .load-bar.error{background:#fdeaea;color:#8d2a2a}
 .load-bar .button{min-height:30px;padding:4px 10px;font-size:11px;margin-left:auto}
 .people-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
-@media(max-width:650px){.live-pill{display:none}.load-bar{padding:9px 14px}.login-card{padding:22px}}
+
+/* ---------- vista práctica (ms-practica) ---------- */
+.quiz-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:20px 24px}
+.quiz-toolbar-field{flex:1;min-width:220px}
+.quiz-toolbar-field select{width:100%;padding:10px 12px;font-size:13px;background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.quiz-list{display:flex;flex-direction:column;gap:16px}
+.quiz-question{padding:22px 24px}
+.quiz-q-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.quiz-q-title{font-size:15px;line-height:1.5;margin:0 0 14px;color:var(--ink)}
+.quiz-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.quiz-option{display:flex;align-items:center;gap:11px;text-align:left;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--ink);font-size:13px;transition:border-color .15s,background .15s}
+.quiz-option:hover:not(:disabled){border-color:var(--a1);background:#f2f9fc}
+.quiz-option:disabled{opacity:1;cursor:default}
+.quiz-option.selected{border-color:var(--a1);background:var(--a2);font-weight:600}
+.quiz-option.correct{border-color:#2e8b57;background:#e8f6ec;color:#17613f;font-weight:600}
+.quiz-option.wrong{border-color:#c0392b;background:#fdeaea;color:#8d2a2a}
+.quiz-option-letter{width:26px;height:26px;border-radius:6px;background:var(--a2);color:var(--a1);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex:none}
+.quiz-option.selected .quiz-option-letter{background:var(--a1);color:#fff}
+.quiz-option.correct .quiz-option-letter{background:#2e8b57;color:#fff}
+.quiz-option.wrong .quiz-option-letter{background:#c0392b;color:#fff}
+.quiz-option-text{flex:1;line-height:1.4}
+.quiz-mark{flex:none}
+.quiz-mark.ok{color:#2e8b57}
+.quiz-mark.err{color:#c0392b}
+.status-pill.quiz-pill-error{background:#fdeaea;color:#8d2a2a}
+.quiz-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:20px;flex-wrap:wrap}
+
+@media(max-width:650px){.live-pill{display:none}.load-bar{padding:9px 14px}.login-card{padding:22px}.quiz-options{grid-template-columns:1fr}.quiz-question,.quiz-toolbar{padding:16px}}

@@ -8,8 +8,8 @@ tareas y entregas, calificaciones, riesgo académico y notificaciones.
 ## Arquitectura
 
 - Se despliega en **AWS Amplify Hosting** (`amplify.yml`).
-- Consume **cinco APIs REST** publicadas en API Gateway, una por microservicio:
-  `auth`, `cursos`, `eval`, `analitica` y `notif`.
+- Consume **seis APIs REST** publicadas en API Gateway, una por microservicio:
+  `auth`, `cursos`, `eval`, `analitica`, `notif` y `practica`.
 - Cada API se configura con una variable `VITE_API_*` (una URL por servicio).
 - Todas las llamadas envían el **token que devuelve el login**. El tenant y el
   rol se leen del token, no de la interfaz, así que cada usuario solo ve los
@@ -28,6 +28,7 @@ Flujo: Amplify → APIs REST (`VITE_API_*`) → token del login en cada petició
 | `VITE_API_EVAL` | `ms-evaluaciones` | tareas, entregas y notas |
 | `VITE_API_ANALITICA` | `ms-analitica` | indicadores y semáforo de riesgo |
 | `VITE_API_NOTIF` | `ms-notificaciones` | avisos y traza de eventos |
+| `VITE_API_PRACTICA` | `ms-practica` | quizzes de repaso corregidos en servidor |
 
 Copia `.env.example` a `.env.local` y completa el `<api-id>` de cada despliegue.
 Las URLs no llevan barra final.
@@ -72,4 +73,5 @@ El build genera la carpeta `dist/`, que es la que se publica en Amplify.
 - `src/live/api.ts`: cliente HTTP de los microservicios; la sesión vive en `sessionStorage`.
 - `src/live/adapt.ts`: traducción entre el contrato del backend y los tipos de la interfaz.
 - `src/views/Riesgo.tsx`: panel de riesgo y traza de eventos.
+- `src/views/Practica.tsx`: quizzes de práctica por curso para alumnos (`ms-practica`).
 - `src/styles.css`, `src/skin.css`, `src/canvas.css`: estilos de la interfaz.
