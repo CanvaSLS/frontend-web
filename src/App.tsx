@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Bell, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight,
   CircleHelp, ClipboardList, CloudUpload, FileText, GraduationCap, Home,
-  Inbox, LayoutDashboard, LogOut, Menu, MoreHorizontal, Pencil, Plus, RefreshCw, Search, ShieldAlert,
+  Inbox, Layers, LayoutDashboard, LogOut, Menu, MoreHorizontal, Pencil, Plus, RefreshCw, Search, ShieldAlert,
   Trash2, TriangleAlert, Users, X,
 } from 'lucide-react'
 import {
@@ -11,6 +11,7 @@ import {
   type Role, type Section, type Submission,
 } from './data'
 import { Login } from './live/Login'
+import { Practica } from './views/Practica'
 import { Riesgo, TarjetaRiesgoAlumno } from './views/Riesgo'
 import { agregarMaterial, alCaducarSesion, crearCurso, descargarMaterial, eliminarCurso, guardarSesion, leerSesion, logout, matriculas, modificarCurso, publicarModulo, subirASS3 } from './live/api'
 import { nombreTenant } from './live/config'
@@ -27,6 +28,7 @@ const navigation: NavigationItem[] = [
   { id: 'calendar', label: 'Calendario', icon: CalendarDays },
   { id: 'inbox', label: 'Bandeja', icon: Inbox },
   { id: 'grades', label: 'Calificaciones', icon: GraduationCap },
+  { id: 'practica', label: 'Práctica', icon: Layers, role: 'student' },
   { id: 'riesgo', label: 'Riesgo', icon: ShieldAlert, role: 'teacher' },
 ]
 
@@ -296,6 +298,7 @@ function Academia({ sesion, onSalir }: { sesion: Sesion; onSalir: () => void }) 
         {section === 'calendar' && <CalendarView assignments={tenantAssignments} courseList={tenantCourses} onAssignment={openAssignment} />}
         {section === 'inbox' && <InboxView notices={tenantNotices} onMarkAllRead={markAllRead} onRead={markRead} />}
         {section === 'grades' && <GradesView role={role} assignments={tenantAssignments} submissions={datos.submissions} courseList={tenantCourses} studentId={studentId} onAssignment={openAssignment} />}
+        {section === 'practica' && <Practica courses={tenantCourses} onNotify={setToast} />}
         {section === 'riesgo' && <Riesgo />}
       </main>}
     </div>

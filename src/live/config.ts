@@ -7,6 +7,7 @@ export const API = {
   eval: env.VITE_API_EVAL ?? '',
   analitica: env.VITE_API_ANALITICA ?? '',
   notif: env.VITE_API_NOTIF ?? '',
+  practica: env.VITE_API_PRACTICA ?? '',
 } as const
 
 /**

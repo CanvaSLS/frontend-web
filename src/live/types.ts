@@ -50,3 +50,9 @@ export interface EventoTraza {
 }
 
 export interface Matricula { curso_id: string; alumno_id: string; alumno_nombre?: string; estado?: string }
+
+export interface PreguntaQuiz { tarjeta_id: string; pregunta: string; opciones: string[]; tema?: string }
+export interface Quiz { curso_id: string; preguntas: PreguntaQuiz[] }
+export interface RespuestaQuiz { tarjeta_id: string; opcion: number }
+export interface DetalleQuiz { tarjeta_id: string; correcta: number; acerto: boolean }
+export interface ResultadoQuiz { aciertos: number; total: number; detalle: DetalleQuiz[] }
